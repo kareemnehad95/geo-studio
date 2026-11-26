@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geo Studio – layered 3D geological modelling from drillhole data</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2328;--mut:#5f6b73;--line:#dcd9d0;--acc:#1f6f78;--bad:#c4151c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 20px 4px}h1{font-size:19px;margin:0}.sub{font-size:12.5px;color:var(--mut)}
+nav{display:flex;gap:4px;padding:10px 20px 0;flex-wrap:wrap}nav button{border:1px solid var(--line);background:#ecebe5;padding:8px 14px;border-radius:8px 8px 0 0;cursor:pointer;font:inherit;color:var(--mut)}nav button.on{background:var(--card);color:var(--ink);font-weight:600}
+main{padding:0 20px 24px}.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 10px 10px 10px;padding:14px}.panel.on{display:block}
+h2{font-size:15px;margin:14px 0 6px}h3{font-size:13px;margin:0 0 4px}.hint{font-size:12px;color:var(--mut)}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}@media(max-width:1100px){.g4{grid-template-columns:1fr 1fr}}
+textarea{width:100%;height:110px;font:11px/1.3 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fcfbf8}
+.btn{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font:inherit;margin:3px 3px 0 0}.btn.sec{background:#fff;color:var(--acc)}.btn.sm{padding:3px 8px;font-size:12px}
+.params{display:flex;flex-wrap:wrap;gap:8px 14px;margin:8px 0;padding:9px 11px;background:#f3f1ea;border-radius:8px;align-items:end}
+.params label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:3px}.params input,.params select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;width:88px;background:#fff}.params select{width:150px}
+.msg{padding:9px 12px;border-radius:8px;background:#fff3d6;border:1px solid #e5c777;color:#6b4a00;font-size:13px;margin:6px 0}.msg.good{background:#e6f4ec;border-color:#a9d4ba;color:#1d5b38}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:4px 7px;border-bottom:1px solid var(--line);text-align:left}th{background:#f1efe8}td input{width:70px;font:inherit;padding:2px 4px;border:1px solid var(--line);border-radius:5px}td input[type=color]{width:34px;padding:0;height:22px}
+.plot{width:100%;height:640px}.side{display:grid;grid-template-columns:250px 1fr;gap:12px}@media(max-width:900px){.side{grid-template-columns:1fr}}
+.u{display:flex;align-items:center;gap:7px;font-size:13px;padding:2px 0}.sw{width:14px;height:14px;border-radius:3px;border:1px solid #0003;flex:none}
+label.r{display:block;font-size:12px;color:var(--mut);margin-top:7px}label.r b{color:var(--ink)}input[type=range]{width:100%}
+.kpis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.kpi{background:#fbfaf7;border:1px solid var(--line);border-radius:10px;padding:6px 12px}.kpi b{display:block;font-size:17px}.kpi span{font-size:12px;color:var(--mut)}
+.scroll{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+</style></head><body>
+<header><h1>Geo Studio – layered 3D geological model from drillhole data</h1>
+<div class="sub">Load collars, surveys, lithology (and assays, topography points) → multi-unit implicit model with topography and a fault → cutaway 3D, editable sections, grade estimation, statistics, export. Runs in your browser; nothing is uploaded.</div></header>
+<nav><button data-t="data" class="on">1 · Data</button><button data-t="setup">2 · Model setup</button><button data-t="v3">3 · 3D cutaway</button><button data-t="sec">4 · Sections &amp; edit</button><button data-t="grade">5 · Grade &amp; statistics</button><button data-t="ic">6 · Intercepts</button><button data-t="qc">7 · QA/QC</button><button data-t="st">8 · Structure</button><button data-t="exp">9 · Export</button></nav>
+<main>
+<section class="panel on" id="data">
+ <div class="msg" style="background:#eef6f3;border-color:#bcd9cf;color:#134e3f"><b>Add your data:</b> <label class="btn" style="display:inline-block;cursor:pointer;margin:0 6px">Add data files (CSV)…<input type="file" id="fAll" multiple accept=".csv,.txt,.tsv" style="display:none"></label> pick all your CSV files at once; they are sent to the right box by file name (collar, survey, litho, assay, topo, struct, qaqc). Or add one box at a time with its own “Choose file” button, or paste text.<div id="fMsg" class="hint" style="margin-top:4px"></div></div>
+ <div class="g4">
+  <div><h3>Collars</h3><input type="file" class="fOne" data-t="tC" accept=".csv,.txt,.tsv" style="font-size:11px;max-width:100%"><div class="hint">HoleID, X, Y, Z</div><textarea id="tC" spellcheck="false"></textarea></div>
+  <div><h3>Surveys</h3><input type="file" class="fOne" data-t="tS" accept=".csv,.txt,.tsv" style="font-size:11px;max-width:100%"><div class="hint">HoleID, Depth, Azimuth, Dip</div><textarea id="tS" spellcheck="false"></textarea></div>
+  <div><h3>Lithology</h3><input type="file" class="fOne" data-t="tL" accept=".csv,.txt,.tsv" style="font-size:11px;max-width:100%"><div class="hint">HoleID, From, To, Litho</div><textarea id="tL" spellcheck="false"></textarea></div>
+  <div><h3>Topography points <span class="hint">(optional)</span></h3><input type="file" class="fOne" data-t="tT" accept=".csv,.txt,.tsv" style="font-size:11px;max-width:100%"><div class="hint">X, Y, Z (collars are added automatically)</div><textarea id="tT" spellcheck="false"></textarea></div>
+ </div>
+ <div style="margin-top:6px"><h3>Assays <span class="hint">(optional, for grade tab)</span></h3><input type="file" class="fOne" data-t="tA" accept=".csv,.txt,.tsv" style="font-size:11px"><div class="hint">HoleID, From, To, Au</div><textarea id="tA" spellcheck="false" style="height:70px"></textarea></div>
+ <div style="margin-top:6px"><h3>Structural measurements <span class="hint">(optional)</span></h3><input type="file" class="fOne" data-t="tSt" accept=".csv,.txt,.tsv" style="font-size:11px"><div class="hint">ID, X, Y, Z, Type, DipDir, Dip</div><textarea id="tSt" spellcheck="false" style="height:70px"></textarea></div>
+ <div><button class="btn sec" id="demo">Generate demo drilling (from a synthetic truth)</button><button class="btn" id="load">Validate &amp; load</button></div>
+ <div id="dOut"></div>
+</section>
+
+<section class="panel" id="setup">
+ <h2>Units</h2><div class="hint">Each unit gets its own implicit interpolant (indicator RBF). Layers: dip 0 and a high anisotropy give smooth sub-horizontal layers; intrusions: anisotropy 1 (isotropic). Dip/dir are the trend of the unit (0 = flat layers).</div>
+ <div class="scroll"><table id="uTab"><tr><th>Code</th><th>Name</th><th>Colour</th><th>Trend dip °</th><th>Dip dir °</th><th>Anisotropy</th><th>Fold Δdip/100 m E</th><th>Trend source</th><th>Rule</th><th></th></tr></table></div><label>Structure type used for local trends <input id="fType" value="Foliation" style="width:110px"></label> <span class="hint">Local trend = flow modelling: the trend follows your measurements (structure table needs East, North, RL columns).</span>
+ <h2>Faults (planar, vertical slip, any number)</h2>
+ <div class="params"><label>Use fault<select id="fOn"><option value="0">No</option><option value="1">Yes</option></select></label>
+  <label>Point East<input id="fX" type="number" value="470"></label><label>Point North<input id="fY" type="number" value="500"></label><label>Point RL<input id="fZ" type="number" value="0"></label>
+  <label>Dip °<input id="fDip" type="number" value="71"></label><label>Dip direction °<input id="fDD" type="number" value="90"></label><label>Throw (m)<input id="fT" type="number" value="90"></label>
+  <label>Hanging wall moves<select id="fS"><option value="1">down (normal)</option><option value="-1">up (reverse)</option></select></label></div>
+ <label style="width:100%">More faults (one per line: East, North, RL, Dip, DipDir, Throw[, StoppedBy]; negative throw = reverse; StoppedBy = number of the fault that cuts this one: 1 = the fault above, 2 = first line here; this fault then exists only on the footwall side of that one). List the youngest first.<textarea id="fMore" rows="3" style="width:100%" placeholder="512100,2745300,880,60,45,15"></textarea></label>
+ <div class="hint">Coordinates are in the same system as your data. Hanging wall = the side the fault dips toward.</div>
+ <h2>Grid &amp; interpolation</h2>
+ <div class="params"><label>Cell size (m)<input id="cs" type="number" value="25"></label><label>Smoothing<input id="lam" type="number" step="0.05" value="0.1"></label><label>Max training points<input id="mp" type="number" value="1500"></label><label>Max cells<input id="mc" type="number" value="400000"></label><label>Edge padding (m)<input id="pad" type="number" value="60"></label>
+  <button class="btn" id="build">Build model</button><button class="btn sec" id="refine">Refine volumes (sub-blocking)</button></div>
+ <h2>Focused shell for a thin unit (vein)</h2><div class="hint">The block model above uses coarse cells, so thin veins disappear. This builds a fine implicit shell for one unit only, around its own samples.</div>
+ <div class="params"><label>Unit<select id="vU"></select></label><label>Cell size (m)<input id="vCs" type="number" step="0.5" value="4"></label><label>Influence range (m)<input id="vR" type="number" step="5" value="40"></label><label>Smoothing<input id="vL" type="number" step="0.05" value="0.05"></label><label>Density<input id="vD" type="number" step="0.1" value="2.7"></label><button class="btn" id="vBuild">Build shell</button><button class="btn sec" id="vClear">Clear shells</button><button class="btn" id="vVein">Build vein (thickness model)</button></div><div class="hint">Vein model: uses each drillhole intercept of the chosen unit (hanging-wall and footwall contacts and true thickness). It interpolates a mid-surface and a thickness field, then draws the vein between them, like a Leapfrog vein system. Thin veins keep their real thickness at any cell size.</div>
+ <div id="vOut"></div><div id="bOut"></div>
+</section>
+
+<section class="panel" id="v3"><div class="side"><div>
+ <h3>Units</h3><div id="legend"></div>
+ <label class="r">Colour by<select id="colBy" style="width:100%"><option value="u">Lithology</option><option value="g">Estimated grade (unit chosen in tab 5)</option></select></label>
+ <h3 style="margin-top:12px">Cutaway</h3>
+ <label class="r">Cut East: <b id="cxL"></b><input type="range" id="cx" min="0" max="100" value="55"></label>
+ <label class="r">Cut South: <b id="cyL"></b><input type="range" id="cy" min="0" max="100" value="40"></label>
+ <label class="r">Cut elevation: <b id="czL"></b><input type="range" id="cz" min="0" max="100" value="100"></label>
+ <label class="r">Vertical exaggeration: <b id="veL"></b><input type="range" id="ve" min="10" max="40" value="20"></label>
+ <div class="u"><input type="checkbox" id="sTop" checked>Topography</div><div class="u"><input type="checkbox" id="sFault" checked>Fault plane</div><div class="u"><input type="checkbox" id="sHoles" checked>Drillholes (colour = lithology)</div><div class="u"><input type="checkbox" id="sComp">Intercepts (tab 6)</div><div class="u"><input type="checkbox" id="sVein" checked>Focused vein shells</div>
+ <button class="btn sec sm" id="v1">Corner cutaway</button><button class="btn sec sm" id="v2">Full block</button>
+ <div class="note" id="vStat"></div></div><div id="p3" class="plot"></div></div></section>
+
+<section class="panel" id="sec"><div class="msg">Click on the section map to add a <b>control point</b> of the unit chosen below (like drawing a contact in Leapfrog). Click an existing diamond to delete it. Points of one unit are joined by a dotted line. Tick “Rebuild live” to update the model after every click.</div>
+ <div class="params"><label>Slice<select id="sOr"><option value="y">E–W section (constant North)</option><option value="x">N–S section (constant East)</option><option value="z">Plan (constant RL)</option></select></label>
+  <label>Position<input type="range" id="sPos" min="0" max="100" value="50" style="width:200px"></label><label>Sample window (m)<input id="sWin" type="number" value="40"></label>
+  <label>Add point as<select id="sUnit"></select></label><button class="btn sec sm" id="cpUndo">Undo point</button><button class="btn sec sm" id="cpClear">Clear points</button><label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="cpLv">Rebuild live</label><button class="btn" id="cpBuild">Rebuild with control points</button><span class="hint" id="sLab"></span></div>
+ <div id="pSec" class="plot" style="height:560px"></div></section>
+
+<section class="panel" id="grade">
+ <div class="params"><label>Estimate in unit<select id="gU"></select></label><label>Search/variogram<select id="gA"><option value="0">Isotropic</option><option value="1">Follow unit trend (anisotropic)</option></select></label><label>Method<select id="gM"><option value="idw">Inverse distance</option><option value="ok">Ordinary kriging</option></select></label>
+  <label>Nugget<input id="gN" type="number" value="1"></label><label>Sill<input id="gSl" type="number" value="5"></label><label>Range (m)<input id="gR" type="number" value="150"></label>
+  <label>Search (m)<input id="gSr" type="number" value="200"></label><label>Max samples<input id="gMx" type="number" value="12"></label><label>Top-cut<input id="gTc" type="number" value="50"></label><label>Density<input id="gD" type="number" step="0.1" value="2.8"></label>
+  <button class="btn" id="gRun">Estimate grade</button><button class="btn sec" id="vgBtn">Compute variogram</button><button class="btn sec" id="vgFit">Auto-fit model</button><label>Report cut-off (g/t)<input id="gCo" type="number" step="0.1" value="1"></label><button class="btn sec" id="gRep">Copy classified summary</button></div>
+ <div id="gOut"></div><div id="gtOut"></div><div id="vgP" class="plot" style="height:340px;display:none"></div>
+ <div class="params"><label>Swath axis<select id="swA"><option value="x">East</option><option value="y">North</option><option value="z">RL</option></select></label><label>Bin width (m)<input id="swW" type="number" value="75"></label><label>Decluster cell (m)<input id="dcC" type="number" value="100"></label>
+  <button class="btn sec" id="swRun">Swath plot &amp; declustering</button><button class="btn sec" id="cvRun">Variogram cross-validation</button></div>
+ <div id="sOut"></div><div id="swP" class="plot" style="height:340px;display:none"></div><div id="cvP" class="plot" style="height:360px;display:none"></div></section>
+
+<section class="panel" id="ic"><div class="msg">Composites, true width and g·m from your assays (tab 1). Enter the vein plane to get true widths.</div>
+ <div class="params"><label>Cut-off (g/t)<input id="iCut" type="number" step="0.1" value="1"></label><label>Min length (m)<input id="iMin" type="number" step="0.5" value="1"></label><label>Max internal dilution (m)<input id="iDil" type="number" step="0.5" value="2"></label><label>Vein dip (°)<input id="iDip" type="number" value="70"></label><label>Vein dip direction (°)<input id="iDD" type="number" value="110"></label><label>Top-cut (g/t)<input id="iTc" type="number" value="1000"></label>
+  <button class="btn" id="iRun">Calculate intercepts</button><button class="btn sec" id="iFit">Fit plane from lithology unit</button><select id="iUnit" style="padding:5px"></select></div>
+ <div id="iOut"></div></section>
+<section class="panel" id="qc"><h3>QA/QC results from the lab</h3><div class="hint">One row per QC sample: <b>type</b> (CRM / BLK / FDUP / PDUP), <b>result</b>, <b>batch</b>, <b>run_order</b> (optional); CRM: <b>crm</b>, <b>certified</b>, <b>sd</b>; duplicates: <b>original</b>.</div>
+ <textarea id="tQC" spellcheck="false" style="height:150px"></textarea><div><button class="btn sec" id="exQC">Load example</button><button class="btn sec" id="clearQ">Clear</button></div>
+ <div class="params"><label>Detection limit (g/t)<input id="qDL" type="number" step="0.001" value="0.005"></label><label>Blank limit (× DL)<input id="qBM" type="number" step="1" value="5"></label><label>CRM limit (± SD)<input id="qSD" type="number" step="0.5" value="3"></label><label>Field dup (RPD %)<input id="qFL" type="number" step="5" value="30"></label><label>Pulp dup (RPD %)<input id="qPL" type="number" step="5" value="10"></label><label>Default CRM SD (%)<input id="qDS" type="number" step="1" value="6"></label><button class="btn" id="runQ">Check QA/QC</button></div>
+ <div id="qOut"></div></section>
+<section class="panel" id="st"><div class="msg">Stereonet (equal-area, lower hemisphere) of the structural measurements from tab 1. Poles are plotted; the curve is the mean plane of each type.</div>
+ <div id="stOut"></div><div class="side" style="grid-template-columns:520px 1fr"><div id="gnet" class="plot" style="height:520px"></div><div><div id="stTab"></div>
+ <div class="params"><label>Use plane of<select id="stSel"></select></label><button class="btn sec" id="stIC">→ Intercepts plane</button><button class="btn sec" id="stF">→ Fault plane</button></div><div id="stMsg"></div></div></div></section>
+<section class="panel" id="exp"><div class="msg">Downloads are blocked inside this page, so the buttons copy the text to your clipboard — paste it into a text file and save it (.csv or .obj).</div>
+ <button class="btn" id="eCsv">Copy block model (CSV)</button><button class="btn" id="eObj">Copy 3D surfaces (OBJ, voxel skin)</button><button class="btn" id="eDm">Copy Datamine-style block CSV</button><button class="btn" id="eSp">Copy Surpac-style block CSV</button><button class="btn" id="eVo">Copy vein meshes (OBJ)</button><button class="btn" id="eSum">Copy unit summary (CSV)</button><span class="hint" id="eMsg"></span>
+ <div class="note">OBJ opens in Blender, MeshLab, or most 3D viewers (groups per unit). The CSV uses your original coordinates.</div></section>
+<div class="note" style="padding:0 20px">Practice tool. Models are simplified (planar faults with vertical slip, argmax of per-unit RBF, IDW/ordinary kriging). They are not a substitute for Leapfrog Geo or other validated software, and not a reportable resource.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);const R=Math.PI/180,S=Math.sin,C=Math.cos;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const f1=v=>(Math.round(v*10)/10).toFixed(1),f2=v=>(Math.round(v*100)/100).toFixed(2),nf=v=>Math.round(v).toLocaleString('en-US');
+const CFG={responsive:true,displaylogo:false},GRID='#e4e1d8';const ax=(t,e)=>Object.assign({title:{text:t},gridcolor:GRID,zerolinecolor:GRID,linecolor:'#bbb'},e||{});
+const PAL=['#e8d98a','#e0a86a','#6e7b86','#7fb3d5','#7a9a5b','#d98c9a','#b4232a','#f2c500','#8e6bbf','#3a9d8f','#c97b3d','#999999'];
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.t));if(b.dataset.t==='st'&&D)drawStruct();if(M){if(b.dataset.t==='v3')draw3d();if(b.dataset.t==='sec')drawSec()}});
+function norm(h){return h.toLowerCase().replace(/[^a-z0-9]/g,'')}
+function parseTable(t){t=(t||'').trim();if(!t)return{rows:[],hdr:[],raw:[]};const L=t.split(/\r?\n/).filter(l=>l.trim());const d=L[0].includes('\t')?'\t':(L[0].includes(';')&&!L[0].includes(','))?';':',';const sp=l=>l.split(d).map(x=>x.trim().replace(/^"|"$/g,''));const raw=sp(L[0]);return{raw,hdr:raw.map(norm),rows:L.slice(1).map(sp),delim:d}}
+const toNum=(s,d)=>{if(s===undefined||s==='')return NaN;if(d===';')s=s.replace(',','.');return parseFloat(s)};const f3=v=>(Math.round(v*1000)/1000).toString();
+const AL={hole:['holeid','hole','bhid','dhid','id'],x:['x','east','easting','e'],y:['y','north','northing','n'],z:['z','rl','elev','elevation'],sd:['depth','at','md'],az:['azimuth','azi','az'],dip:['dip','inclination'],from:['from','depthfrom'],to:['to','depthto'],lith:['litho','lith','lithology','code','rock']};
+const col=(h,k)=>{for(const a of AL[k]){const i=h.indexOf(a);if(i>=0)return i}return -1};
+let D=null,M=null,CP=[],GR=null,TRUTH=null;
+// ====================== synthetic truth (demo) ======================
+const T_UN=[['AL','Alluvium'],['SS','Sandstone'],['SH','Shale'],['LS','Limestone'],['VO','Volcanics'],['GR','Granite basement'],['PO','Porphyry'],['SK','Skarn']];
+const T_topo=(x,y)=>150+110*Math.sin(x/220)*Math.cos(y/260)+55*Math.cos(x/130+y/170)-0.05*x-95*Math.exp(-Math.pow((y-500-60*Math.sin(x/200))/70,2));
+const T_val=(x,y)=>95*Math.exp(-Math.pow((y-500-60*Math.sin(x/200))/70,2));
+const T_fx=z=>470-0.35*z,T_FT=90,T_h=(x,y)=>40*Math.sin(x/300+0.6)+0.15*(x-500)+25*Math.cos(y/250);
+function T_unit(x,y,z){const zt=T_topo(x,y);if(z>zt)return -1;let zz=z;if(x>T_fx(z))zz=z+T_FT;const w=zz-T_h(x,y);const ex=(x-720)/110,ey=(y-380)/95,ez=(z+170)/210,e=ex*ex+ey*ey+ez*ez;if(e<1)return 6;let u;if(w>40)u=1;else if(w>-60)u=2;else if(w>-170)u=3;else if(w>-310)u=4;else u=5;if(u===3&&e<2.6)return 7;if(u===2&&e<1.6)return 7;if(T_val(x,y)>45&&z>zt-9)return 0;return u}
+$('demo').onclick=()=>{let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+ const col_=[],sv=[],li=[],as=[],tp=[];let n=0;
+ for(let i=0;i<7;i++)for(let j=0;j<6;j++){n++;const h='DH'+String(n).padStart(2,'0');const x=80+i*140+(rnd()-.5)*40,y=80+j*165+(rnd()-.5)*40,z=T_topo(x,y);const az=(i%2?90:270)+(rnd()-.5)*10,dip=(j%3===0)?90:62+rnd()*6;
+  col_.push([h,x.toFixed(1),y.toFixed(1),z.toFixed(1)]);sv.push([h,0,az.toFixed(1),(-dip).toFixed(1)]);
+  const a=az*R,d=dip*R;let px=x,py=y,pz=z,prev=null,start=0,len=0;
+  const dirv=[C(d)*S(a),C(d)*C(a),-S(d)];
+  for(let m=0;m<=640;m+=2){const mx=x+dirv[0]*(m+1),my=y+dirv[1]*(m+1),mz=z+dirv[2]*(m+1);if(mz<-480){len=m;break}const u=T_unit(mx,my,mz);if(prev===null)prev=u;else if(u!==prev){li.push([h,start,m,T_UN[prev][0]]);start=m;prev=u}len=m+2}
+  li.push([h,start,len,T_UN[prev][0]]);sv[sv.length-1][1]=0;
+  for(let m=0;m<len;m+=4){const mx=x+dirv[0]*(m+2),my=y+dirv[1]*(m+2),mz=z+dirv[2]*(m+2);const u=T_unit(mx,my,mz);let g=0.01*Math.exp((rnd()-.5)*1.2);const shoot=Math.exp(-(((mx-720)/160)**2+((my-380)/150)**2));if(u===7)g=Math.exp(Math.log(0.5+6*shoot)+(rnd()-.5)*1.6);else if(u===6)g=Math.exp(Math.log(0.15+0.5*shoot)+(rnd()-.5)*1.2);as.push([h,m,m+4,g.toFixed(3)])}}
+ for(let a=0;a<=20;a++)for(let b=0;b<=20;b++){const x=a*50,y=b*50;tp.push([x,y,T_topo(x,y).toFixed(1)])}
+ const J=(h,r)=>h+'\n'+r.map(q=>q.join(',')).join('\n');
+ const stt=[];for(let q=0;q<26;q++){const x=60+((q*137)%880),y=60+((q*211)%880),e=1,gx=(T_h(x+e,y)-T_h(x-e,y))/(2*e),gy=(T_h(x,y+e)-T_h(x,y-e))/(2*e);const dp=Math.atan(Math.hypot(gx,gy))/R+(rnd()-.5)*4,dd=(Math.atan2(-gx,-gy)/R+360+(rnd()-.5)*8)%360;stt.push(['ST'+(q+1),x.toFixed(0),y.toFixed(0),T_topo(x,y).toFixed(0),'Bedding',dd.toFixed(0),dp.toFixed(0)])}for(let q=0;q<9;q++){const y=80+q*100;stt.push(['F'+(q+1),T_fx(0).toFixed(0),y,0,'Fault',(90+(rnd()-.5)*12).toFixed(0),(71+(rnd()-.5)*8).toFixed(0)])}
+ $('tSt').value=J('ID,X,Y,Z,TYPE,DIPDIR,DIP',stt);$('tC').value=J('HOLEID,X,Y,Z',col_);$('tS').value=J('HOLEID,DEPTH,AZIMUTH,DIP',sv);$('tL').value=J('HOLEID,FROM,TO,LITHO',li);$('tA').value=J('HOLEID,FROM,TO,Au_gpt',as);$('tT').value=J('X,Y,Z',tp);
+ TRUTH=true;loadData();
+ $('fOn').value='1';$('fX').value=470;$('fZ').value=0;$('fDip').value=71;$('fDD').value=90;$('fT').value=90;$('fS').value=1;
+ document.querySelectorAll('#uTab tr[data-code]').forEach(tr=>{const c=tr.dataset.code,intr=(c==='PO'||c==='SK');tr.querySelector('.ud').value=0;tr.querySelector('.ua').value=intr?1:4});
+ $('cs').value=25;$('dOut').insertAdjacentHTML('afterbegin','<div class="msg good">Demo loaded: 42 drillholes on a synthetic layered geology with a fault and an intrusion. Settings in tab 2 were pre-filled. Press “Build model”.</div>')};
+$('load').onclick=()=>{TRUTH=null;loadData()};
+// ====================== loading ======================
+function loadData(){
+ M=null;CP=[];GR=null;const out=$('dOut'),iss=[],add=(s,m)=>iss.push([s,m]);
+ const Cx=parseTable($('tC').value),Sx=parseTable($('tS').value),Lx=parseTable($('tL').value),Tx=parseTable($('tT').value),Ax=parseTable($('tA').value);
+ if(!Cx.rows.length||!Lx.rows.length){out.innerHTML='<div class="msg">Paste collars and lithology, or use the demo button.</div>';return}
+ const cm={h:col(Cx.hdr,'hole'),x:col(Cx.hdr,'x'),y:col(Cx.hdr,'y'),z:col(Cx.hdr,'z')};if(Object.values(cm).some(v=>v<0)){out.innerHTML='<div class="msg">Collars need HoleID, X, Y, Z.</div>';return}
+ const coll={};Cx.rows.forEach((r,i)=>{const o={x:+r[cm.x],y:+r[cm.y],z:+r[cm.z]};if(!r[cm.h]||[o.x,o.y,o.z].some(isNaN)){add('Error','Collar row '+(i+2)+' invalid (missing hole ID, X, Y or Z), skipped');return}if(coll[r[cm.h]])add('Error','Collar '+r[cm.h]+' appears more than once; the last row is used');coll[r[cm.h]]=o});
+ const hs=Object.keys(coll);const ox=hs.reduce((a,h)=>a+coll[h].x,0)/hs.length,oy=hs.reduce((a,h)=>a+coll[h].y,0)/hs.length,oz=hs.reduce((a,h)=>a+coll[h].z,0)/hs.length;
+ hs.forEach(h=>{coll[h].x-=ox;coll[h].y-=oy;coll[h].z-=oz});
+ const sv={};if(Sx.rows.length){const m={h:col(Sx.hdr,'hole'),d:col(Sx.hdr,'sd'),a:col(Sx.hdr,'az'),p:col(Sx.hdr,'dip')};let sp_=0,sn_=0,azb=0;Sx.rows.forEach(r=>{const dp=+r[m.p],o={d:+r[m.d],a:+r[m.a],p:Math.abs(dp)};if(!coll[r[m.h]]||[o.d,o.a,o.p].some(isNaN))return;if(dp>0)sp_++;else if(dp<0)sn_++;if(o.a<0||o.a>=360)azb++;(sv[r[m.h]]=sv[r[m.h]]||[]).push(o)});if(sp_&&sn_)add('Warn','Mixed dip signs in the survey ('+sn_+' negative, '+sp_+' positive): all treated as downward. Use one convention (negative = down).');if(azb)add('Warn',azb+' survey azimuth(s) outside 0–360 (e.g. negative): check and add 360.');Object.values(sv).forEach(a=>a.sort((p,q)=>p.d-q.d))}
+ hs.forEach(h=>{if(!sv[h])add('Warn',h+': no survey, vertical hole assumed')});
+ const pos=(h,dep)=>{const c=coll[h];let st=sv[h];if(!st||!st.length)st=[{d:0,a:0,p:90}];else{st=st.slice().sort((a,b)=>a.d-b.d);if(st[0].d>0)st=[{...st[0],d:0},...st]}
+  const dir=s=>{const a=s.a*R,p=s.p*R;return[C(p)*S(a),C(p)*C(a),-S(p)]};let x=c.x,y=c.y,z=c.z;
+  for(let i=0;i<st.length;i++){const d0=st[i].d,hasN=i+1<st.length,d1=hasN?st[i+1].d:Infinity,L=Math.min(dep,d1)-d0;if(L<=0)break;const t0=dir(st[i]);
+   if(!hasN||d1<=d0){x+=L*t0[0];y+=L*t0[1];z+=L*t0[2]}else{const t1=dir(st[i+1]),f=L/(d1-d0);let dt=t0[0]*t1[0]+t0[1]*t1[1]+t0[2]*t1[2];dt=Math.max(-1,Math.min(1,dt));const om=Math.acos(dt);let tl=t1;
+    if(om>1e-9){const s0=Math.sin((1-f)*om)/Math.sin(om),s1=Math.sin(f*om)/Math.sin(om);tl=[s0*t0[0]+s1*t1[0],s0*t0[1]+s1*t1[1],s0*t0[2]+s1*t1[2]]}else tl=t0;
+    const dl=Math.acos(Math.max(-1,Math.min(1,t0[0]*tl[0]+t0[1]*tl[1]+t0[2]*tl[2])));const rf=dl<1e-6?1:Math.tan(dl/2)/(dl/2);x+=L/2*(t0[0]+tl[0])*rf;y+=L/2*(t0[1]+tl[1])*rf;z+=L/2*(t0[2]+tl[2])*rf}
+   if(dep<=d1)break}return[x,y,z]};
+ const D_pos=pos;const lm={h:col(Lx.hdr,'hole'),f:col(Lx.hdr,'from'),t:col(Lx.hdr,'to'),l:col(Lx.hdr,'lith')};if(Object.values(lm).some(v=>v<0)){out.innerHTML='<div class="msg">Lithology needs HoleID, From, To, Litho.</div>';return}
+ const lith={},codes=[];let bad=0;Lx.rows.forEach(r=>{const h=r[lm.h],f=+r[lm.f],t=+r[lm.t],c=r[lm.l];if(!coll[h]||isNaN(f)||isNaN(t)||t<=f||!c){bad++;return}if(!codes.includes(c))codes.push(c);(lith[h]=lith[h]||[]).push({f,t,c})});
+ if(bad)add('Warn',bad+' lithology row(s) invalid (unknown hole, From ≥ To or blank code), skipped');
+ Object.keys(lith).forEach(h=>{lith[h].sort((a,b)=>a.f-b.f);const a=lith[h];for(let i=1;i<a.length;i++){if(a[i].f<a[i-1].t-1e-6)add('Warn',h+': lithology overlap at '+a[i].f+' m');else if(a[i].f>a[i-1].t+1e-6)add('Warn',h+': lithology gap '+a[i-1].t+'–'+a[i].f+' m')}});
+ const samp=[];Object.keys(lith).forEach(h=>lith[h].forEach(q=>{for(let m=q.f+1;m<q.t;m+=2){const p=pos(h,m);samp.push({h,m,x:p[0],y:p[1],z:p[2],c:q.c})}if(q.t-q.f<2){const p=pos(h,(q.f+q.t)/2);samp.push({h,m:(q.f+q.t)/2,x:p[0],y:p[1],z:p[2],c:q.c})}}));
+ const topo=hs.map(h=>[coll[h].x,coll[h].y,coll[h].z]);if(Tx.rows.length){const m={x:col(Tx.hdr,'x'),y:col(Tx.hdr,'y'),z:col(Tx.hdr,'z')};Tx.rows.forEach(r=>{const p=[+r[m.x]-ox,+r[m.y]-oy,+r[m.z]-oz];if(!p.some(isNaN))topo.push(p)})}else add('Info','No topography points: surface is interpolated from collars only')
+ const assay=[],asRows=[];if(Ax.rows.length){const m={h:col(Ax.hdr,'hole'),f:col(Ax.hdr,'from'),t:col(Ax.hdr,'to')};const gi=Ax.raw.findIndex((h,i)=>![m.h,m.f,m.t].includes(i));const orph=new Set();let ft=0,txt=0,neg=0,bd=0;Ax.rows.forEach(r=>{const h=r[m.h],f=+r[m.f],t=+r[m.t];const raw=(r[gi]||'').trim();if(!coll[h]){orph.add(h);return}if(isNaN(f)||isNaN(t)||t<=f){ft++;return}let v;if(raw.startsWith('<')){v=+raw.slice(1)/2;bd++}else v=+raw;if(isNaN(v)){txt++;return}if(v<0){neg++;return}const p=D_pos(h,(f+t)/2);let c='';if(lith[h]){const q=lith[h].find(z=>(f+t)/2>=z.f&&(f+t)/2<z.t);c=q?q.c:''}assay.push({h,f,t,x:p[0],y:p[1],z:p[2],au:v,c});asRows.push({h,f,t,v})});
+ if(orph.size)add('Error','Assay hole IDs not in the collar table: '+[...orph].slice(0,6).join(', ')+' – probably a typo; those rows are skipped.');if(ft)add('Error',ft+' assay row(s) with From ≥ To or non-numeric depth: correct or delete; skipped.');if(txt)add('Warn',txt+' assay value(s) are text (e.g. NSS): skipped. They are unsampled, not zero.');if(neg)add('Warn',neg+' negative assay value(s) (lab code such as −1 = not sampled): skipped.');if(bd)add('Info',bd+' value(s) given as “<detection limit”: replaced by half the limit.');
+ const bh={};asRows.forEach(a=>(bh[a.h]=bh[a.h]||[]).push(a));Object.keys(bh).forEach(h=>{const a=bh[h].sort((p,q)=>p.f-q.f);let ov=0,gp=0;for(let i=1;i<a.length;i++){const g=a[i].f-a[i-1].t;if(g<-1e-6)ov++;else if(g>1e-6)gp++}if(ov)add('Error',h+': '+ov+' overlapping assay interval(s). Overlaps double-count metres.');if(gp)add('Warn',h+': '+gp+' gap(s) between assay intervals (treated as unsampled).')})}
+ if(asRows.length>20){const vs=asRows.map(r=>r.v).sort((p,q)=>p-q),p99=vs[Math.floor(vs.length*.99)]||0,mx=vs[vs.length-1],hi=asRows.find(r=>r.v===mx);if(mx>25*Math.max(p99,0.5))add('Warn','Very high assay '+mx+' g/t in '+hi.h+' ('+hi.f+'–'+hi.t+' m) is far above the rest: check units (ppb entered as g/t?) before using it.')}
+ {const ds=hs.map(h=>Math.hypot(coll[h].x,coll[h].y)).sort((p,q)=>p-q),md=ds[Math.floor(ds.length/2)]||1;hs.forEach(h=>{const d=Math.hypot(coll[h].x,coll[h].y);if(d>6*md+200)add('Warn','Collar '+h+' lies far from the other holes: check its coordinates (typo, or units in feet?).')});const zs=hs.map(h=>coll[h].z).sort((p,q)=>p-q),mz=zs[Math.floor(zs.length/2)];hs.forEach(h=>{if(Math.abs(coll[h].z-mz)>500)add('Warn','Collar '+h+' RL differs by '+Math.round(Math.abs(coll[h].z-mz))+' m from the median: check units (feet vs metres).')})}
+ const stx=parseTable($('tSt').value),struct=[];if(stx.rows.length){const m={t:stx.hdr.findIndex(h=>['type','kind','structure'].includes(h)),dd:stx.hdr.findIndex(h=>['dipdir','dipdirection','dd','azimuth'].includes(h)),dp:stx.hdr.findIndex(h=>['dip'].includes(h))};if(m.t<0||m.dd<0||m.dp<0)add('Error','Structure table needs Type, DipDir and Dip columns; ignored.');else{let bd=0;stx.rows.forEach(r=>{const dd=+r[m.dd],dp=+r[m.dp];if(isNaN(dd)||isNaN(dp)||dp<0||dp>90||dd<0||dd>360){bd++;return}{const cx=stx.hdr.findIndex(h=>['x','east','easting','e'].includes(h)),cy=stx.hdr.findIndex(h=>['y','north','northing','n'].includes(h)),cz=stx.hdr.findIndex(h=>['z','rl','elev','elevation'].includes(h)),px=cx>=0?+r[cx]:NaN,py=cy>=0?+r[cy]:NaN,pz=cz>=0?+r[cz]:NaN;struct.push({id:r[0],t:r[m.t],dd:dd%360,dp,x:isNaN(px+py+pz)?null:px,y:py,z:pz})}});if(bd)add('Warn',bd+' structural measurement(s) invalid (dip outside 0–90 or direction outside 0–360), skipped.')}}
+ D={coll,hs,pos,lith,samp,topo,assay,asRows,codes,ox,oy,oz,struct};struct.forEach(s=>{if(s.x!=null){s.x-=ox;s.y-=oy;s.z-=oz}});
+ // unit table
+ const old={};
+ $('uTab').innerHTML='<tr><th>Code</th><th>Name</th><th>Colour</th><th>Trend dip °</th><th>Dip dir °</th><th>Anisotropy</th><th title="Fold/flow: how much the trend dip changes per 100 m going East (0 = planar). Warps the interpolation space.">Fold Δdip/100 m E</th><th title="Fixed: the dip and direction typed here. Local: the trend changes with position, interpolated from structural measurements (flow / fold modelling).">Trend source</th><th title="Conformable: competes with others. Overprint: intrusive or erosional unit that cuts everything older; list younger units first.">Rule</th><th></th></tr>'+codes.map((c,i)=>{const dn=(T_UN.find(t=>t[0]===c)||[c,c])[1];return `<tr data-code="${esc(c)}"><td>${esc(c)}</td><td><input class="un" value="${esc(dn)}" style="width:130px"></td><td><input type="color" class="uc" value="${PAL[i%PAL.length]}"></td><td><input class="ud" type="number" value="0"></td><td><input class="udd" type="number" value="0"></td><td><input class="ua" type="number" step="0.5" value="3"></td><td><input class="uf" type="number" step="0.5" value="0" style="width:70px"></td><td><select class="ul"><option value="f">Fixed</option><option value="l">Local (from structure)</option></select></td><td><select class="ur"><option value="c">Conformable</option><option value="o"${['DYK','PO','SK','INT','OB'].includes(c)?' selected':''}>Overprint (intrusive/erosional)</option></select></td><td><button class="btn sec sm fit">Fit trend</button></td></tr>`}).join('');
+ const mx=samp.length;out.innerHTML=`<div class="msg ${iss.some(i=>i[0]==='Error')?'':'good'}">${iss.length?iss.length+' finding(s)':'Data loaded, no problems'}.</div><div class="kpis"><div class="kpi"><b>${hs.length}</b><span>holes</span></div><div class="kpi"><b>${nf(mx)}</b><span>lithology samples (2 m)</span></div><div class="kpi"><b>${codes.length}</b><span>units: ${esc(codes.join(', '))}</span></div><div class="kpi"><b>${topo.length}</b><span>topography points</span></div><div class="kpi"><b>${assay.length}</b><span>assay samples</span></div></div>`+(iss.length?'<div class="scroll"><table>'+iss.slice(0,60).map(i=>`<tr><td><b>${i[0]}</b></td><td>${esc(i[1])}</td></tr>`).join('')+'</table></div>':'')+'<div class="hint">Next: tab 2.</div>';
+ fillUnitSelects()}
+function units(){return [...document.querySelectorAll('#uTab tr[data-code]')].map(tr=>({code:tr.dataset.code,name:tr.querySelector('.un').value,color:tr.querySelector('.uc').value,dip:+tr.querySelector('.ud').value,dd:+tr.querySelector('.udd').value,an:Math.max(1,+tr.querySelector('.ua').value||1),fd:+(tr.querySelector('.uf')||{value:0}).value||0,rule:tr.querySelector('.ur')?tr.querySelector('.ur').value:'c',loc:tr.querySelector('.ul')?tr.querySelector('.ul').value==='l':false}))}
+function fillUnitSelects(){const U=units(),h=U.map((u,i)=>`<option value="${i}">${esc(u.name)}</option>`).join('');$('sUnit').innerHTML=h;$('vU').innerHTML=h;$('gU').innerHTML=h;$('iUnit').innerHTML=h;drawStruct();const k=U.findIndex(u=>u.code==='SK');if(k>=0)$('gU').value=k}
+// ====================== geometry ======================
+function frame(dip,dd){dip*=R;dd*=R;return{n:[S(dip)*S(dd),S(dip)*C(dd),C(dip)],p:[C(dip)*S(dd),C(dip)*C(dd),-S(dip)],s:[C(dd),-S(dd),0]}}
+function localTrend(){const ty=($('fType').value||'Foliation').trim().toLowerCase(),P=D.struct.filter(s=>s.x!=null&&String(s.t).trim().toLowerCase()===ty).map(s=>{const d=s.dp*R,a=s.dd*R;return{x:s.x,y:s.y,z:s.z,n:[S(d)*S(a),S(d)*C(a),C(d)]}});if(P.length<3)throw new Error('Local trend needs at least 3 structure measurements of type "'+ty+'" with East, North and RL columns (found '+P.length+').');
+ return(x,y,z)=>{const near=P.map(p=>[(p.x-x)**2+(p.y-y)**2+(p.z-z)**2,p]).sort((a,b)=>a[0]-b[0]).slice(0,6);let sx=0,sy=0,sz=0,sw=0;for(const[d2,p]of near){const w=1/(d2+100);sx+=w*p.n[0];sy+=w*p.n[1];sz+=w*p.n[2];sw+=w}sx/=sw;sy/=sw;sz/=sw;const L=Math.hypot(sx,sy,sz)||1;return{dip:Math.acos(Math.min(1,Math.max(-1,sz/L)))/R,dd:(Math.atan2(sx,sy)/R+360)%360}}}
+function mkT(dip,dd,an,fd,loc){if(loc){return(x,y,z)=>{const q=loc(x,y,z),f=frame(q.dip,q.dd);return[(f.s[0]*x+f.s[1]*y+f.s[2]*z)/an,(f.p[0]*x+f.p[1]*y+f.p[2]*z)/an,f.n[0]*x+f.n[1]*y+f.n[2]*z]}}if(fd){return(x,y,z)=>{const f=frame(dip+fd*x/100,dd);return[(f.s[0]*x+f.s[1]*y+f.s[2]*z)/an,(f.p[0]*x+f.p[1]*y+f.p[2]*z)/an,f.n[0]*x+f.n[1]*y+f.n[2]*z]}}const f=frame(dip,dd);return(x,y,z)=>[(f.s[0]*x+f.s[1]*y+f.s[2]*z)/an,(f.p[0]*x+f.p[1]*y+f.p[2]*z)/an,f.n[0]*x+f.n[1]*y+f.n[2]*z]}
+function faultSetup(){if($('fOn').value!=='1')return null;const mk=(x,y,z,dip,dd,thr)=>{const p0=[x-D.ox,y-D.oy,z-D.oz],fr=frame(dip,dd);return{p0,n:fr.n,fr,th:thr,side:(a,b,c)=>fr.n[0]*(a-p0[0])+fr.n[1]*(b-p0[1])+fr.n[2]*(c-p0[2])}};
+ const L=[mk(+$('fX').value,+$('fY').value,+$('fZ').value,+$('fDip').value,+$('fDD').value,+$('fT').value*(+$('fS').value))];
+ ($('fMore').value||'').split(/\n/).forEach(l=>{const v=l.split(/[,;\t]/).map(Number);if(v.length>=6&&!v.slice(0,6).some(isNaN)){const f=mk(v[0],v[1],v[2],v[3],v[4],v[5]);if(v.length>=7&&v[6]>=1)f.stop=v[6]-1;L.push(f)}});
+ const f0=L[0];return{...f0,list:L,restore(x,y,z){for(const f of L){if(f.stop!=null&&L[f.stop]&&L[f.stop].side(x,y,z)>0)continue;if(f.side(x,y,z)>0)z+=f.th}return[x,y,z]},forward(x,y,z){for(let i=L.length-1;i>=0;i--){const f=L[i];if(f.stop!=null&&L[f.stop]&&L[f.stop].side(x,y,z)>0)continue;if(f.side(x,y,z-f.th)>0)z-=f.th}return[x,y,z]}}}
+function topoFn(){const P=D.topo;const idx={};const cell=60;P.forEach(p=>{const k=Math.floor(p[0]/cell)+'_'+Math.floor(p[1]/cell);(idx[k]=idx[k]||[]).push(p)});
+ return(x,y)=>{const ci=Math.floor(x/cell),cj=Math.floor(y/cell);let near=[];for(let r=1;r<=8&&near.length<6;r++){near=[];for(let i=ci-r;i<=ci+r;i++)for(let j=cj-r;j<=cj+r;j++){const a=idx[i+'_'+j];if(a)near.push(...a)}}if(!near.length)return 0;const d=near.map(p=>[(p[0]-x)**2+(p[1]-y)**2,p[2]]).sort((a,b)=>a[0]-b[0]).slice(0,8);let sw=0,sz=0;for(const[q,z]of d){const w=1/(q+4);sw+=w;sz+=w*z}return sz/sw}}
+function solveMulti(A,B,n,r){for(let c=0;c<n;c++){let p=c,mx=Math.abs(A[c*n+c]);for(let q=c+1;q<n;q++){const v=Math.abs(A[q*n+c]);if(v>mx){mx=v;p=q}}if(mx<1e-12)throw new Error('singular system – try more smoothing');if(p!==c){for(let k=0;k<n;k++){const t=A[c*n+k];A[c*n+k]=A[p*n+k];A[p*n+k]=t}for(let k=0;k<r;k++){const t=B[c*r+k];B[c*r+k]=B[p*r+k];B[p*r+k]=t}}
+  const d=A[c*n+c];for(let q=c+1;q<n;q++){const f=A[q*n+c]/d;if(f===0)continue;for(let k=c;k<n;k++)A[q*n+k]-=f*A[c*n+k];for(let k=0;k<r;k++)B[q*r+k]-=f*B[c*r+k]}}
+ const X=new Float64Array(n*r);for(let q=n-1;q>=0;q--)for(let k=0;k<r;k++){let s=B[q*r+k];for(let j=q+1;j<n;j++)s-=A[q*n+j]*X[j*r+k];X[q*r+k]=s/A[q*n+q]}return X}
+// ====================== build ======================
+$('build').onclick=()=>build(false);
+function build(withCP){if(!D){$('bOut').innerHTML='<div class="msg">Load data first.</div>';return}$('bOut').innerHTML='<div class="msg">Building… (a few seconds)</div>';setTimeout(()=>{try{doBuild(withCP)}catch(e){$('bOut').innerHTML='<div class="msg">Could not build: '+esc(e.message)+'</div>'}},40)}
+function doBuild(withCP){
+ const t0=performance.now(),U=units(),nU=U.length,fault=faultSetup(),topo=topoFn(),lam=+$('lam').value||0.05;let cs=Math.max(5,+$('cs').value||25),pad=+$('pad').value||60,maxP=Math.max(150,Math.min(3000,+$('mp').value||1500));
+ const uIdx={};U.forEach((u,i)=>uIdx[u.code]=i);
+ // training points (restored for fault)
+ let pts=D.samp.map(s=>{const r=fault?fault.restore(s.x,s.y,s.z):[s.x,s.y,s.z];return{x:r[0],y:r[1],z:r[2],u:uIdx[s.c]}});
+ if(withCP)CP.forEach(c=>{const r=fault?fault.restore(c.x,c.y,c.z):[c.x,c.y,c.z];pts.push({x:r[0],y:r[1],z:r[2],u:c.u,cp:1})});
+ let th=6,tr;for(let it=0;it<40;it++){const seen=new Set();tr=[];pts.forEach(p=>{const k=Math.floor(p.x/th)+'_'+Math.floor(p.y/th)+'_'+Math.floor(p.z/th)+'_'+p.u;if(p.cp||!seen.has(k)){seen.add(k);tr.push(p)}});if(tr.length<=maxP)break;th*=1.25}
+ const m=tr.length,N=m+4;
+ // groups by trend
+ const groups={};U.forEach((u,i)=>{const k=u.dip+'_'+u.dd+'_'+u.an+'_'+u.fd+'_'+u.loc;(groups[k]=groups[k]||{k,u,idx:[]}).idx.push(i)});
+ let LOC=null;const G=Object.values(groups);G.forEach(g=>{const T=mkT(g.u.dip,g.u.dd,g.u.an,g.u.fd,g.u.loc?(LOC=LOC||localTrend()):null);g.T=T;g.Q=tr.map(p=>T(p.x,p.y,p.z));const r=g.idx.length,A=new Float64Array(N*N),B=new Float64Array(N*r);
+  for(let i=0;i<m;i++){for(let j=0;j<m;j++){const a=g.Q[i],b=g.Q[j],dx=a[0]-b[0],dy=a[1]-b[1],dz=a[2]-b[2];A[i*N+j]=Math.sqrt(dx*dx+dy*dy+dz*dz)}A[i*N+i]+=lam;A[i*N+m]=1;A[m*N+i]=1;for(let k=0;k<3;k++){A[i*N+m+1+k]=g.Q[i][k];A[(m+1+k)*N+i]=g.Q[i][k]}
+   for(let k=0;k<r;k++)B[i*r+k]=tr[i].u===g.idx[k]?1:-1}
+  g.W=solveMulti(A,B,N,r)});
+ // grid
+ const lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];D.samp.forEach(s=>{[s.x,s.y,s.z].forEach((v,k)=>{if(v<lo[k])lo[k]=v;if(v>hi[k])hi[k]=v})});D.topo.forEach(p=>{if(p[2]>hi[2])hi[2]=p[2];if(p[0]<lo[0])lo[0]=p[0];if(p[0]>hi[0])hi[0]=p[0];if(p[1]<lo[1])lo[1]=p[1];if(p[1]>hi[1])hi[1]=p[1]});
+ const x0=lo[0]-pad*0,y0=lo[1]-pad*0,z0=lo[2]-10,z1=hi[2]+20;let dims;for(let it=0;it<30;it++){dims=[Math.ceil((hi[0]-lo[0])/cs),Math.ceil((hi[1]-lo[1])/cs),Math.ceil((z1-z0)/cs)];if(dims[0]*dims[1]*dims[2]<=Math.max(20000,+$('mc').value||400000))break;cs*=1.15}
+ const [nx,ny,nz]=dims;const X0=lo[0],Y0=lo[1],NN=nx*ny*nz;const Uc=new Int8Array(NN).fill(-1);const tz=new Float32Array(nx*ny);
+ const OVI=U.map((u,i)=>u.rule==='o'?i:-1).filter(i=>i>=0),hasOV=OVI.length>0&&OVI.length<nU;
+ const evalAt=(x,y,z,sc)=>{const r=fault?fault.restore(x,y,z):[x,y,z];const SC=new Float64Array(nU);for(const g of G){const q=g.T(r[0],r[1],r[2]),W=g.W,rr=g.idx.length,s=new Float64Array(rr);for(let k=0;k<rr;k++)s[k]=W[m*rr+k]+W[(m+1)*rr+k]*q[0]+W[(m+2)*rr+k]*q[1]+W[(m+3)*rr+k]*q[2];
+   for(let c=0;c<m;c++){const a=g.Q[c],dx=q[0]-a[0],dy=q[1]-a[1],dz=q[2]-a[2],d=Math.sqrt(dx*dx+dy*dy+dz*dz),o=c*rr;for(let k=0;k<rr;k++)s[k]+=W[o+k]*d}
+   for(let k=0;k<rr;k++)SC[g.idx[k]]=s[k]}
+  if(hasOV)for(const k of OVI)if(SC[k]>0)return k;
+  let best=-1,bv=-1e9;for(let k=0;k<nU;k++){if(hasOV&&U[k].rule==='o')continue;if(SC[k]>bv){bv=SC[k];best=k}}return best};
+ for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)tz[j*nx+i]=topo(X0+(i+.5)*cs,Y0+(j+.5)*cs);
+ for(let k=0;k<nz;k++){const z=z0+(k+.5)*cs;for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){if(z>tz[j*nx+i])continue;Uc[(k*ny+j)*nx+i]=evalAt(X0+(i+.5)*cs,Y0+(j+.5)*cs,z)}}
+ M={U,Uc,nx,ny,nz,X0,Y0,Z0:z0,cs,tz,fault,topo,evalAt,groups:G,m,secs:(performance.now()-t0)/1000,bbox:{lo,hi,zt:z1},refined:null,usedCP:withCP?CP.length:0};
+ let agree='';if(TRUTH){let ok=0,tot=0;for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const u=Uc[(k*ny+j)*nx+i],t=T_unit(X0+(i+.5)*cs+D.ox,Y0+(j+.5)*cs+D.oy,z0+(k+.5)*cs+D.oz);if(u<0&&t<0)continue;tot++;if(u>=0&&t>=0&&U[u].code===T_UN[t][0])ok++}agree=` Agreement with the synthetic truth: <b>${f1(100*ok/tot)}%</b> of cells.`;M.agree=100*ok/tot}
+ volumes();GR=null;drawLegend();
+ $('bOut').innerHTML=`<div class="msg good">Model built in ${f1(M.secs)} s: ${m} training points, grid ${nx}×${ny}×${nz} (cell ${f1(cs)} m)${withCP?`, ${CP.length} control point(s) used`:''}.${agree} See tab 3 (3D) and tab 4 (sections).</div>`+volTable();
+ if(document.querySelector('#v3.on'))draw3d()}
+function volumes(){const v=M.U.map(()=>0),cv=M.cs**3;for(let i=0;i<M.Uc.length;i++){const u=M.Uc[i];if(u>=0)v[u]+=cv}M.vol=v}
+function volTable(){const tot=M.vol.reduce((a,b)=>a+b,0)||1;return '<h2>Volumes</h2><div class="scroll"><table><tr><th>Unit</th><th>Volume (Mm³)</th><th>% of model</th>'+(M.refined?'<th>Sub-blocked (Mm³)</th>':'')+'</tr>'+M.U.map((u,i)=>`<tr><td><span class="sw" style="display:inline-block;background:${u.color};vertical-align:middle"></span> ${esc(u.name)}</td><td>${f2(M.vol[i]/1e6)}</td><td>${f1(100*M.vol[i]/tot)}</td>${M.refined?`<td>${f2(M.refined[i]/1e6)}</td>`:''}</tr>`).join('')+'</table></div>'}
+$('refine').onclick=()=>{if(!M){$('bOut').innerHTML='<div class="msg">Build the model first.</div>';return}$('bOut').insertAdjacentHTML('afterbegin','<div class="msg" id="rfm">Refining boundary cells (2×2×2)…</div>');setTimeout(()=>{const {Uc,nx,ny,nz,cs,X0,Y0,Z0,tz,evalAt}=M,v=M.U.map(()=>0),h=cs/4,sv=(cs/2)**3;let nb=0;
+  for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i,u=Uc[id];if(u<0)continue;let bd=false;for(const[a,b,c]of[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){const ii=i+a,jj=j+b,kk=k+c;if(ii<0||jj<0||kk<0||ii>=nx||jj>=ny||kk>=nz)continue;const n=Uc[(kk*ny+jj)*nx+ii];if(n!==u){bd=true;break}}
+   if(!bd){v[u]+=cs**3;continue}nb++;for(let a=0;a<2;a++)for(let b=0;b<2;b++)for(let c=0;c<2;c++){const x=X0+i*cs+h+a*2*h,y=Y0+j*cs+h+b*2*h,z=Z0+k*cs+h+c*2*h;if(z>tz[j*nx+i])continue;v[evalAt(x,y,z)]+=sv}}
+  M.refined=v;$('bOut').innerHTML=`<div class="msg good">Sub-blocked ${nb} boundary cells into 8 sub-cells each.</div>`+volTable()},40)};
+
+// ====================== focused shell (thin units) ======================
+let VEINS=[];const TETS=[[0,5,1,6],[0,1,2,6],[0,2,3,6],[0,3,7,6],[0,7,4,6],[0,4,5,6]],CO=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+function marching(F,nx,ny,nz,x0,y0,z0,cs){const X=[],Y=[],Z=[],I=[],J=[],K=[];const id=(i,j,k)=>(k*ny+j)*nx+i;let n=0;const vv=new Float64Array(8);
+ for(let k=0;k<nz-1;k++)for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){let any=0;for(let c=0;c<8;c++){const v=F[id(i+CO[c][0],j+CO[c][1],k+CO[c][2])];vv[c]=v;if(v>0)any++}if(any===0||any===8)continue;
+  for(const tt of TETS){const ins=[],outs=[];for(const c of tt)(vv[c]>0?ins:outs).push(c);if(!ins.length||!outs.length)continue;
+   const pt=(a,b)=>{const va=vv[a],vb=vv[b],u=va/(va-vb);return[x0+(i+CO[a][0]+u*(CO[b][0]-CO[a][0]))*cs,y0+(j+CO[a][1]+u*(CO[b][1]-CO[a][1]))*cs,z0+(k+CO[a][2]+u*(CO[b][2]-CO[a][2]))*cs]};
+   const tri=(p,q,r)=>{[p,q,r].forEach(v=>{X.push(v[0]);Y.push(v[1]);Z.push(v[2])});I.push(n);J.push(n+1);K.push(n+2);n+=3};
+   if(ins.length===1){const a=ins[0];tri(pt(a,outs[0]),pt(a,outs[1]),pt(a,outs[2]))}else if(outs.length===1){const a=outs[0];tri(pt(a,ins[0]),pt(a,ins[1]),pt(a,ins[2]))}else{const[a,b]=ins,[c,d]=outs,p1=pt(a,c),p2=pt(a,d),p3=pt(b,d),p4=pt(b,c);tri(p1,p2,p3);tri(p1,p3,p4)}}}
+ return{X,Y,Z,I,J,K}}
+$('vClear').onclick=()=>{VEINS=[];$('vOut').innerHTML='';if(M&&document.querySelector('#v3.on'))draw3d()};
+$('vBuild').onclick=()=>{if(!D){$('vOut').innerHTML='<div class="msg">Load data first.</div>';return}$('vOut').innerHTML='<div class="msg">Building shell…</div>';setTimeout(()=>{try{
+  const U=units(),ui=+$('vU').value,u=U[ui],fault=faultSetup(),rng=Math.max(5,+$('vR').value||40),lam=+$('vL').value||0.05;let cs=Math.max(1,+$('vCs').value||4);
+  let pts=D.samp.map(s=>{const r=fault?fault.restore(s.x,s.y,s.z):[s.x,s.y,s.z];return{x:r[0],y:r[1],z:r[2],v:s.c===u.code?1:-1}});const nIn=pts.filter(p=>p.v>0).length;if(nIn<4)throw new Error('Only '+nIn+' sample(s) in this unit.');
+  const ins=pts.filter(p=>p.v>0);let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];ins.forEach(p=>[p.x,p.y,p.z].forEach((v,k)=>{if(v<lo[k])lo[k]=v;if(v>hi[k])hi[k]=v}));const pad=rng;lo=lo.map(v=>v-pad);hi=hi.map(v=>v+pad);
+  pts=pts.filter(p=>p.x>=lo[0]&&p.x<=hi[0]&&p.y>=lo[1]&&p.y<=hi[1]&&p.z>=lo[2]&&p.z<=hi[2]);
+  let th=3,tr;for(let it=0;it<40;it++){const seen=new Set();tr=[];pts.forEach(p=>{const k=Math.floor(p.x/th)+'_'+Math.floor(p.y/th)+'_'+Math.floor(p.z/th)+'_'+p.v;if(!seen.has(k)){seen.add(k);tr.push(p)}});if(tr.length<=650)break;th*=1.25}
+  const T=mkT(u.dip,u.dd,u.an),Q=tr.map(p=>T(p.x,p.y,p.z)),m=tr.length,N=m+4,A=new Float64Array(N*N),B=new Float64Array(N);
+  for(let i=0;i<m;i++){for(let j=0;j<m;j++){const dx=Q[i][0]-Q[j][0],dy=Q[i][1]-Q[j][1],dz=Q[i][2]-Q[j][2];A[i*N+j]=Math.sqrt(dx*dx+dy*dy+dz*dz)}A[i*N+i]+=lam;A[i*N+m]=1;A[m*N+i]=1;for(let k=0;k<3;k++){A[i*N+m+1+k]=Q[i][k];A[(m+1+k)*N+i]=Q[i][k]}B[i]=tr[i].v}
+  const W=solveMulti(A,B,N,1);let dims;for(let it=0;it<30;it++){dims=[0,1,2].map(k=>Math.ceil((hi[k]-lo[k])/cs)+1);if(dims[0]*dims[1]*dims[2]<=450000)break;cs*=1.2}
+  const [nx,ny,nz]=dims,NN=nx*ny*nz,sup=new Uint8Array(NN),r=Math.ceil(rng/cs);
+  ins.forEach(s=>{const ci=Math.round((s.x-lo[0])/cs),cj=Math.round((s.y-lo[1])/cs),ck=Math.round((s.z-lo[2])/cs);for(let k=Math.max(0,ck-r);k<=Math.min(nz-1,ck+r);k++)for(let j=Math.max(0,cj-r);j<=Math.min(ny-1,cj+r);j++)for(let i=Math.max(0,ci-r);i<=Math.min(nx-1,ci+r);i++){const dx=lo[0]+i*cs-s.x,dy=lo[1]+j*cs-s.y,dz=lo[2]+k*cs-s.z;if(dx*dx+dy*dy+dz*dz<=rng*rng)sup[(k*ny+j)*nx+i]=1}});
+  const F=new Float32Array(NN).fill(-1);let nin=0;for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i;if(!sup[id])continue;const q=T(lo[0]+i*cs,lo[1]+j*cs,lo[2]+k*cs);let s=W[m]+W[m+1]*q[0]+W[m+2]*q[1]+W[m+3]*q[2];for(let c=0;c<m;c++){const dx=q[0]-Q[c][0],dy=q[1]-Q[c][1],dz=q[2]-Q[c][2];s+=W[c]*Math.sqrt(dx*dx+dy*dy+dz*dz)}F[id]=s;if(s>0)nin++}
+  // shell lives in restored space; move hanging wall back for display
+  const mesh=marching(F,nx,ny,nz,lo[0],lo[1],lo[2],cs);if(fault){for(let q=0;q<mesh.X.length;q++){const r=fault.forward(mesh.X[q],mesh.Y[q],mesh.Z[q]);mesh.Z[q]=r[2]}}
+  const vol=nin*cs**3,dens=+$('vD').value||2.7;VEINS.push({name:u.name,color:u.color,mesh,vol,cs});
+  $('vOut').innerHTML=`<div class="msg good">Shell for ${esc(u.name)}: ${m} training points, cell ${f1(cs)} m, ${nf(mesh.I.length)} triangles. Volume ${nf(vol)} m³ ≈ ${nf(vol*dens)} t at density ${dens}. Mean true thickness over the shell is not computed; compare with the intercept widths in tab 6. Tick “Focused vein shells” in tab 3.</div>`;if(M&&document.querySelector('#v3.on'))draw3d()}catch(e){$('vOut').innerHTML='<div class="msg">Could not build: '+esc(e.message)+'</div>'}},40)};
+
+$('vVein').onclick=()=>{if(!D){$('vOut').innerHTML='<div class="msg">Load data first.</div>';return}$('vOut').innerHTML='<div class="msg">Building vein…</div>';setTimeout(()=>{try{
+  const U=units(),u=U[+$('vU').value],fault=faultSetup(),rng=Math.max(10,+$('vR').value||40);let cs=Math.max(1,+$('vCs').value||4);
+  const n=frame(u.dip,u.dd).n,ints=[];
+  Object.keys(D.lith).forEach(h=>{let cur=null;D.lith[h].forEach(q=>{if(q.c===u.code){if(cur&&Math.abs(q.f-cur.t)<1e-6)cur.t=q.t;else{if(cur)ints.push(cur);cur={h,f:q.f,t:q.t}}}else if(cur){ints.push(cur);cur=null}});if(cur)ints.push(cur)});
+  if(ints.length<3)throw new Error('Need at least 3 intercepts of this unit (found '+ints.length+').');
+  const rs=p=>fault?fault.restore(p[0],p[1],p[2]):p;
+  const I=ints.map(q=>{const a=rs(D.pos(q.h,q.f)),b=rs(D.pos(q.h,q.t)),m=rs(D.pos(q.h,(q.f+q.t)/2)),w=Math.abs((b[0]-a[0])*n[0]+(b[1]-a[1])*n[1]+(b[2]-a[2])*n[2]);return{h:q.h,a,b,m,w:Math.max(w,0.3)}});
+  const sd=(p,m)=>(p[0]-m[0])*n[0]+(p[1]-m[1])*n[1]+(p[2]-m[2])*n[2];
+  const tw=I.map(i=>i.w).sort((x,y)=>x-y),med=tw[Math.floor(tw.length/2)],d=Math.max(5,med*2);
+  const P=[];I.forEach(i=>{P.push([i.m,0]);P.push([i.a,sd(i.a,i.m)]);P.push([i.b,sd(i.b,i.m)]);P.push([[i.m[0]+d*n[0],i.m[1]+d*n[1],i.m[2]+d*n[2]],d]);P.push([[i.m[0]-d*n[0],i.m[1]-d*n[1],i.m[2]-d*n[2]],-d])});
+  const m=P.length,N=m+4,A=new Float64Array(N*N),B=new Float64Array(N);
+  for(let i=0;i<m;i++){for(let j=0;j<m;j++)A[i*N+j]=Math.hypot(P[i][0][0]-P[j][0][0],P[i][0][1]-P[j][0][1],P[i][0][2]-P[j][0][2]);A[i*N+i]+=0.5;A[i*N+m]=1;A[m*N+i]=1;for(let k=0;k<3;k++){A[i*N+m+1+k]=P[i][0][k];A[(m+1+k)*N+i]=P[i][0][k]}B[i]=P[i][1]}
+  const W=solveMulti(A,B,N,1);
+  let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];I.forEach(i=>[i.a,i.b].forEach(p=>p.forEach((v,k)=>{if(v<lo[k])lo[k]=v;if(v>hi[k])hi[k]=v})));lo=lo.map(v=>v-rng);hi=hi.map(v=>v+rng);
+  let dims;for(let it=0;it<30;it++){dims=[0,1,2].map(k=>Math.ceil((hi[k]-lo[k])/cs)+1);if(dims[0]*dims[1]*dims[2]<=600000)break;cs*=1.15}
+  const [nx,ny,nz]=dims,F=new Float32Array(nx*ny*nz).fill(-1);let nin=0,tsum=0,volf=0;const sup=Math.max(rng,2*med);
+  for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const x=lo[0]+i*cs,y=lo[1]+j*cs,z=lo[2]+k*cs;let sw=0,st=0,dm=1e9;for(const q of I){const d2=(q.m[0]-x)**2+(q.m[1]-y)**2+(q.m[2]-z)**2;if(d2<dm)dm=d2;const w=1/(d2+25);sw+=w;st+=w*q.w}
+   if(dm>rng*rng)continue;const th=st/sw;let s=W[m]+W[m+1]*x+W[m+2]*y+W[m+3]*z;for(let c=0;c<m;c++)s+=W[c]*Math.hypot(x-P[c][0][0],y-P[c][0][1],z-P[c][0][2]);const v=th/2-Math.abs(s);F[(k*ny+j)*nx+i]=v;volf+=Math.min(1,Math.max(0,v/cs+.5));if(v>0){nin++;tsum+=th}}
+  const mesh=marching(F,nx,ny,nz,lo[0],lo[1],lo[2],cs);if(fault)for(let q=0;q<mesh.X.length;q++){const r=fault.forward(mesh.X[q],mesh.Y[q],mesh.Z[q]);mesh.Z[q]=r[2]}
+  const dens=+$('vD').value||2.7,vol=volf*cs**3;VEINS.push({name:u.name+' vein',color:u.color==='#6e7b86'?'#ff3d00':u.color,mesh,vol,cs});
+  $('vOut').innerHTML=`<div class="msg good">Vein for ${esc(u.name)}: ${I.length} intercepts (median true thickness ${f1(med)} m), mean modelled thickness ${f1(tsum/Math.max(1,nin))} m, cell ${f1(cs)} m, ${nf(mesh.I.length)} triangles. Volume ${nf(vol)} m³ ≈ ${nf(vol*dens)} t. Tick “Focused vein shells” in tab 3. Cell size is a display resolution only; the thickness comes from the intercepts.</div>`;if(M&&document.querySelector('#v3.on'))draw3d()}catch(e){$('vOut').innerHTML='<div class="msg">Could not build: '+esc(e.message)+'</div>'}},40)};
+// ====================== 3D ======================
+function drawLegend(){$('legend').innerHTML=M.U.map((u,i)=>`<div class="u"><input type="checkbox" id="u${i}" checked><span class="sw" style="background:${u.color}"></span><label for="u${i}">${esc(u.name)}</label></div>`).join('');M.U.forEach((u,i)=>$('u'+i).onchange=draw3d)}
+['cx','cy','cz','ve','sTop','sFault','sHoles','sComp','sVein','colBy'].forEach(i=>$(i).oninput=()=>{if(M)draw3d()});
+$('v1').onclick=()=>{$('cx').value=55;$('cy').value=40;$('cz').value=100;if(M)draw3d()};$('v2').onclick=()=>{$('cx').value=100;$('cy').value=0;$('cz').value=100;if(M)draw3d()};
+const hexc=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];const shade=(c,f)=>`rgb(${hexc(c).map(v=>Math.round(Math.min(255,v*f)))})`;
+const FACE=[[1,0,0,.78],[-1,0,0,.62],[0,1,0,.88],[0,-1,0,.70],[0,0,1,1.05],[0,0,-1,.5]];
+function gradeColor(g){const t=Math.max(0,Math.min(1,Math.log10(Math.max(g,.05)+.0)/1.5+.9/1.5));const st=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];const f=t*4,i=Math.min(3,Math.floor(f)),u=f-i;return `rgb(${[0,1,2].map(k=>Math.round(st[i][k]+(st[i+1][k]-st[i][k])*u))})`}
+function skin(opts){const {Uc,nx,ny,nz,cs,X0,Y0,Z0}=M;const vis=opts.vis,cx=opts.cx,cy=opts.cy,czv=opts.cz,topOn=opts.top;const show=new Uint8Array(Uc.length);
+ for(let k=0;k<nz;k++){const z=Z0+(k+.5)*cs;for(let j=0;j<ny;j++){const y=Y0+(j+.5)*cs;for(let i=0;i<nx;i++){const u=Uc[(k*ny+j)*nx+i];if(u<0||!vis[u]||z>czv)continue;const x=X0+(i+.5)*cs;if(x>cx&&y<cy)continue;show[(k*ny+j)*nx+i]=1}}}
+ const out=[];const id=(i,j,k)=>(k*ny+j)*nx+i;
+ for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const c=id(i,j,k);if(!show[c])continue;for(let fi=0;fi<6;fi++){const f=FACE[fi],ni=i+f[0],nj=j+f[1],nk=k+f[2];let d=false;if(ni<0||nj<0||nk<0||ni>=nx||nj>=ny||nk>=nz)d=!(nk>=nz);else{const nc=id(ni,nj,nk);if(!show[nc]){d=true;if(f[2]===1&&Uc[nc]<0&&topOn){const xc=X0+(i+.5)*cs,yc=Y0+(j+.5)*cs;if(!(xc>cx&&yc<cy))d=false}}}if(d)out.push([i,j,k,fi,c])}}
+ return out}
+function draw3d(){if(!M)return;const {nx,ny,nz,cs,X0,Y0,Z0,bbox}=M;const lo=bbox.lo,xs=nx*cs,ys=ny*cs,zs=nz*cs;
+ const cx=X0+($('cx').value/100)*xs,cy=Y0+($('cy').value/100)*ys,czv=Z0+($('cz').value/100)*zs,ve=$('ve').value/10;
+ $('cxL').textContent='E < '+Math.round(cx+D.ox)+' m';$('cyL').textContent='N > '+Math.round(cy+D.oy)+' m';$('czL').textContent='RL ≤ '+Math.round(czv+D.oz)+' m';$('veL').textContent='×'+ve.toFixed(1);
+ const vis=M.U.map((u,i)=>$('u'+i)?$('u'+i).checked:true),topOn=$('sTop').checked,byG=$('colBy').value==='g'&&GR;
+ const fs=skin({vis,cx,cy,cz:czv,top:topOn});const X=[],Y=[],Z=[],I=[],J=[],K=[],FC=[];let n=0;
+ fs.forEach(([i,j,k,fi,c])=>{const f=FACE[fi],x=X0+i*cs,y=Y0+j*cs,z=Z0+k*cs,u=M.Uc[c];let base=M.U[u].color;if($('colBy').value==='g'){base=(GR&&GR.u===u&&!isNaN(GR.G[c]))?null:'#cfcfcf'}
+  const sc=base===null?shade('#808080',1).replace(/rgb\(.*\)/,gradeColor(GR.G[c])):shade(base,f[3]);const col=base===null?(()=>{const m=gradeColor(GR.G[c]).match(/\d+/g).map(Number);return `rgb(${m.map(v=>Math.round(Math.min(255,v*f[3]))).join(',')})`})():sc;
+  let q;if(f[0]===1)q=[[x+cs,y,z],[x+cs,y+cs,z],[x+cs,y+cs,z+cs],[x+cs,y,z+cs]];else if(f[0]===-1)q=[[x,y,z],[x,y,z+cs],[x,y+cs,z+cs],[x,y+cs,z]];else if(f[1]===1)q=[[x,y+cs,z],[x,y+cs,z+cs],[x+cs,y+cs,z+cs],[x+cs,y+cs,z]];else if(f[1]===-1)q=[[x,y,z],[x+cs,y,z],[x+cs,y,z+cs],[x,y,z+cs]];else if(f[2]===1)q=[[x,y,z+cs],[x+cs,y,z+cs],[x+cs,y+cs,z+cs],[x,y+cs,z+cs]];else q=[[x,y,z],[x,y+cs,z],[x+cs,y+cs,z],[x+cs,y,z]];
+  q.forEach(v=>{X.push(v[0]);Y.push(v[1]);Z.push(v[2])});I.push(n,n);J.push(n+1,n+2);K.push(n+2,n+3);FC.push(col,col);n+=4});
+ const tr=[{type:'mesh3d',x:X,y:Y,z:Z,i:I,j:J,k:K,facecolor:FC,flatshading:true,lighting:{ambient:1,diffuse:0,specular:0},hoverinfo:'skip',showlegend:false}];
+ if(topOn){const nn=70,gx=[],gy=[];for(let a=0;a<=nn;a++){gx.push(X0+a*xs/nn);gy.push(Y0+a*ys/nn)}const zz=[],cc=[];for(let b=0;b<=nn;b++){const rz=[],rc=[];for(let a=0;a<=nn;a++){const x=gx[a],y=gy[b],zt=M.topo(x,y);const ci=Math.min(nx-1,Math.max(0,Math.floor((x-X0)/cs))),cj=Math.min(ny-1,Math.max(0,Math.floor((y-Y0)/cs)));let u=-1;for(let k=nz-1;k>=0;k--){const v=M.Uc[(k*ny+cj)*nx+ci];if(v>=0){u=v;break}}const hid=(x>cx&&y<cy)||zt>czv||u<0||!vis[u];rz.push(hid?null:zt);rc.push(Math.max(0,u)+.5)}zz.push(rz);cc.push(rc)}
+  const nu=M.U.length,cscale=[];M.U.forEach((u,i)=>cscale.push([i/nu,u.color],[(i+1)/nu,u.color]));
+  tr.push({type:'surface',x:gx,y:gy,z:zz,surfacecolor:cc,cmin:0,cmax:nu,colorscale:cscale,showscale:false,lighting:{ambient:.55,diffuse:.75,specular:.05,roughness:.9},lightposition:{x:-2000,y:-3000,z:4000},hoverinfo:'skip'})}
+ if($('sFault').checked&&M.fault)M.fault.list.forEach(F_=>{const f=F_.fr,p0=F_.p0,pts=[];for(const z of[Z0,M.bbox.zt])for(const a of[-xs*1.5,xs*1.5]){const b=(z-p0[2])/f.p[2];pts.push([p0[0]+a*f.s[0]+b*f.p[0],p0[1]+a*f.s[1]+b*f.p[1],z])}
+  tr.push({type:'mesh3d',x:pts.map(p=>p[0]),y:pts.map(p=>p[1]),z:pts.map(p=>p[2]),i:[0,1],j:[1,3],k:[2,2],color:'#222',opacity:.15,hoverinfo:'skip',showlegend:false})});
+ if($('sHoles').checked){const hx=[],hy=[],hz=[],hc=[];D.samp.forEach(s=>{if(s.m%14>1.5)return;hx.push(s.x);hy.push(s.y);hz.push(s.z);const ui=M.U.findIndex(u=>u.code===s.c);hc.push(M.U[ui].color)});tr.push({type:'scatter3d',mode:'markers',x:hx,y:hy,z:hz,marker:{size:2.5,color:hc},hoverinfo:'skip',showlegend:false})}
+ if($('sVein').checked)VEINS.forEach(v=>{if(v.mesh.I.length)tr.push({type:'mesh3d',x:v.mesh.X,y:v.mesh.Y,z:v.mesh.Z,i:v.mesh.I,j:v.mesh.J,k:v.mesh.K,color:v.color==='#6e7b86'?'#ff3d00':v.color,opacity:.9,flatshading:true,hoverinfo:'name',name:v.name,showlegend:false,lighting:{ambient:.6}})});
+ if($('sComp').checked&&COMPS.length){const cx_=[],cy_=[],cz_=[];COMPS.forEach(c=>{for(let q=0;q<=4;q++){const p=D.pos(c.h,c.f+(c.t-c.f)*q/4);cx_.push(p[0]);cy_.push(p[1]);cz_.push(p[2])}cx_.push(null);cy_.push(null);cz_.push(null)});tr.push({type:'scatter3d',mode:'lines',x:cx_,y:cy_,z:cz_,line:{color:'#ff6a00',width:10},hoverinfo:'skip',showlegend:false})}
+ const sc={aspectmode:'manual',aspectratio:{x:xs/Math.max(xs,ys),y:ys/Math.max(xs,ys),z:(zs/Math.max(xs,ys))*ve/1.0*0.5},xaxis:{title:'East (rel.)',range:[X0,X0+xs]},yaxis:{title:'North (rel.)',range:[Y0,Y0+ys]},zaxis:{title:'RL (rel.)',range:[Z0,Z0+zs]},camera:{eye:{x:1.5,y:-1.6,z:1.0}}};
+ Plotly.react('p3',tr,{uirevision:'k',margin:{l:0,r:0,t:0,b:0},paper_bgcolor:'rgba(0,0,0,0)',scene:sc},CFG);
+ $('vStat').textContent='Coordinates on the axes are relative to the collar centre ('+Math.round(D.ox)+', '+Math.round(D.oy)+', '+Math.round(D.oz)+'). Cut faces look blocky because the model is voxelised.'}
+
+// ====================== file upload ======================
+function readFile(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n'));fr.readAsText(f)})}
+document.querySelectorAll('.fOne').forEach(i=>i.onchange=async()=>{const f=i.files[0];if(!f)return;$(i.dataset.t).value=await readFile(f);$('fMsg').textContent='Loaded '+f.name+' into its box. Press “Validate & load” when all boxes are filled.'});
+function routeName(n){n=n.toLowerCase();if(/qa|qc|crm|blank|dup/.test(n))return 'tQC';if(/struct|measure|foliat/.test(n))return 'tSt';if(/collar/.test(n))return 'tC';if(/survey/.test(n))return 'tS';if(/litho|geolog|log/.test(n))return 'tL';if(/assay|sample|grade/.test(n))return 'tA';if(/topo|surface|dtm/.test(n))return 'tT';return null}
+$('fAll').onchange=async()=>{const ok=[],bad=[];for(const f of $('fAll').files){const id=routeName(f.name);if(!id){bad.push(f.name);continue}$(id).value=await readFile(f);ok.push(f.name+' → '+({tC:'Collars',tS:'Surveys',tL:'Lithology',tA:'Assays',tT:'Topography',tSt:'Structure',tQC:'QA/QC (tab 7)'})[id])}$('fMsg').innerHTML=(ok.length?'Loaded: '+ok.map(esc).join('; ')+'. ':'')+(bad.length?'<b>Could not tell where these go (rename them with collar/survey/litho/assay/topo/struct/qaqc): '+bad.map(esc).join(', ')+'</b>. ':'')+(ok.length?'Press “Validate & load”.':'');if($('tQC').value&&ok.some(x=>x.includes('QA/QC')))runQC()};
+// ====================== sections & control points ======================
+['sOr','sPos','sWin'].forEach(i=>$(i).oninput=()=>{if(M)drawSec()});
+function drawSec(){if(!M)return;const {nx,ny,nz,cs,X0,Y0,Z0,Uc}=M,o=$('sOr').value,dims={x:nx,y:ny,z:nz},org={x:X0,y:Y0,z:Z0},n=dims[o],idx=Math.min(n-1,Math.round($('sPos').value/100*(n-1))),pos=org[o]+(idx+.5)*cs;
+ const A=o==='x'?['y','z']:o==='y'?['x','z']:['x','y'],na=dims[A[0]],nb=dims[A[1]],nm={x:'East (rel.)',y:'North (rel.)',z:'RL (rel.)'};
+ const z=[],nu=M.U.length;for(let b=0;b<nb;b++){const r=[];for(let a=0;a<na;a++){const c={x:0,y:0,z:0};c[o]=idx;c[A[0]]=a;c[A[1]]=b;const u=Uc[(c.z*ny+c.y)*nx+c.x];r.push(u<0?null:u+.5)}z.push(r)}
+ const ax0=Array.from({length:na},(_,a)=>org[A[0]]+(a+.5)*cs),ax1=Array.from({length:nb},(_,b)=>org[A[1]]+(b+.5)*cs);const cscale=[];M.U.forEach((u,i)=>cscale.push([i/nu,u.color],[(i+1)/nu,u.color]));
+ $('sLab').textContent=({x:'East',y:'North',z:'RL'})[o]+' = '+Math.round(pos+({x:D.ox,y:D.oy,z:D.oz})[o])+' m';const w=+$('sWin').value||40;
+ const sm=D.samp.filter(s=>Math.abs(s[o]-pos)<=w);const tr=[{type:'heatmap',x:ax0,y:ax1,z,colorscale:cscale,zmin:0,zmax:nu,showscale:false,hoverongaps:false,hovertemplate:'%{x:.0f}, %{y:.0f}<extra></extra>'},
+  {type:'scatter',mode:'markers',x:sm.map(s=>s[A[0]]),y:sm.map(s=>s[A[1]]),marker:{size:5,color:sm.map(s=>M.U.find(u=>u.code===s.c).color),line:{width:1,color:'#222'}},text:sm.map(s=>s.h+' '+s.c),hoverinfo:'text',showlegend:false}];
+ const cps=CP.filter(c=>Math.abs(c[o]-pos)<=w);M.U.forEach((u_,ui_)=>{const l=cps.filter(c=>c.u===ui_).sort((p,q)=>p[A[0]]-q[A[0]]);if(l.length>1)tr.push({type:'scatter',mode:'lines',x:l.map(c=>c[A[0]]),y:l.map(c=>c[A[1]]),line:{color:u_.color,width:3,dash:'dot'},hoverinfo:'skip',showlegend:false})});if(cps.length)tr.push({type:'scatter',mode:'markers',name:'cp',customdata:cps.map(c=>CP.indexOf(c)),x:cps.map(c=>c[A[0]]),y:cps.map(c=>c[A[1]]),marker:{size:12,symbol:'diamond',color:cps.map(c=>M.U[c.u].color),line:{width:2,color:'#000'}},text:cps.map(c=>'control point: '+M.U[c.u].name),hoverinfo:'text',showlegend:false});
+ if(M.fault&&o!=='z'){const f=M.fault,pp=[];for(const zz of[Z0,Z0+nz*cs]){const t=o==='y'?[f.p0[0]+((zz-f.p0[2])/f.fr.p[2])*f.fr.p[0]]:null;pp.push(o==='y'?[f.p0[0]+((zz-f.p0[2])/f.fr.p[2])*f.fr.p[0],zz]:[f.p0[1]+((zz-f.p0[2])/f.fr.p[2])*f.fr.p[1],zz])}
+  if(o==='y'||o==='x')tr.push({type:'scatter',mode:'lines',x:pp.map(p=>p[0]),y:pp.map(p=>p[1]),line:{color:'#000',width:2,dash:'dash'},hoverinfo:'skip',showlegend:false})}
+ const gd=$('pSec');Plotly.react(gd,tr,{uirevision:o,margin:{l:60,r:10,t:10,b:45},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax(nm[A[0]],{range:[ax0[0],ax0[na-1]]}),yaxis:ax(nm[A[1]],{scaleanchor:'x',scaleratio:o==='z'?1:1,range:[ax1[0],ax1[nb-1]]})},CFG);
+ gd._sec={o,A,pos};if(!gd._bound){gd._bound=true;gd.on('plotly_click',e=>{const s=gd._sec,cpHit=e.points.find(q=>q.data&&q.data.name==='cp');if(cpHit){CP.splice(cpHit.customdata,1);drawSec();cpLive();return}const p=e.points.find(q=>q.curveNumber===0);if(!p)return;const pt={x:0,y:0,z:0};pt[s.o]=s.pos;pt[s.A[0]]=p.x;pt[s.A[1]]=p.y;pt.u=+$('sUnit').value;CP.push(pt);drawSec();cpLive()})}}
+let cpT=null;function cpLive(){if(!$('cpLv').checked)return;clearTimeout(cpT);cpT=setTimeout(()=>build(true),600)}
+$('cpUndo').onclick=()=>{CP.pop();if(M)drawSec();cpLive()};$('cpClear').onclick=()=>{CP=[];if(M)drawSec()};
+$('cpBuild').onclick=()=>{if(!M)return;build(true);document.querySelector('nav button[data-t=setup]').click()};
+
+// ====================== trend fitting (from contacts) ======================
+function jacobi3(A){const V=[[1,0,0],[0,1,0],[0,0,1]];A=A.map(r=>r.slice());for(let it=0;it<60;it++){let p=0,q=1,m=Math.abs(A[0][1]);if(Math.abs(A[0][2])>m){p=0;q=2;m=Math.abs(A[0][2])}if(Math.abs(A[1][2])>m){p=1;q=2;m=Math.abs(A[1][2])}if(m<1e-12)break;const th=(A[q][q]-A[p][p])/(2*A[p][q]),t=Math.sign(th||1)/(Math.abs(th)+Math.sqrt(th*th+1)),c=1/Math.sqrt(t*t+1),s=t*c;for(let k=0;k<3;k++){const a=A[k][p],b=A[k][q];A[k][p]=c*a-s*b;A[k][q]=s*a+c*b}for(let k=0;k<3;k++){const a=A[p][k],b=A[q][k];A[p][k]=c*a-s*b;A[q][k]=s*a+c*b}for(let k=0;k<3;k++){const a=V[k][p],b=V[k][q];V[k][p]=c*a-s*b;V[k][q]=s*a+c*b}}const ev=[A[0][0],A[1][1],A[2][2]],i=ev.indexOf(Math.min(...ev));return[V[0][i],V[1][i],V[2][i]]}
+function fitPlane(code){if(!D)return null;const pts=[];for(let i=1;i<D.samp.length;i++){const a=D.samp[i-1],b=D.samp[i];if(a.h!==b.h||b.m-a.m>2.5)continue;if(a.c!==b.c&&(a.c===code||b.c===code))pts.push([(a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2])}
+ if(pts.length<6)return null;const m=[0,1,2].map(k=>pts.reduce((s,p)=>s+p[k],0)/pts.length),Cv=[[0,0,0],[0,0,0],[0,0,0]];pts.forEach(p=>{for(let i=0;i<3;i++)for(let j=0;j<3;j++)Cv[i][j]+=(p[i]-m[i])*(p[j]-m[j])});let n=jacobi3(Cv);if(n[2]<0)n=n.map(v=>-v);let dd=Math.atan2(n[0],n[1])/R;if(dd<0)dd+=360;return{dip:Math.acos(Math.min(1,n[2]))/R,dd,n:pts.length}}
+$('uTab').addEventListener('click',e=>{if(!e.target.classList.contains('fit'))return;const tr=e.target.closest('tr'),f=fitPlane(tr.dataset.code);if(!f){$('bOut').innerHTML='<div class="msg">Not enough contact points for '+esc(tr.dataset.code)+' (need ≥ 6).</div>';return}tr.querySelector('.ud').value=Math.round(f.dip);tr.querySelector('.udd').value=Math.round(f.dd);$('bOut').innerHTML='<div class="msg good">'+esc(tr.dataset.code)+': plane fitted through '+f.n+' contact points: dip '+Math.round(f.dip)+'°, dip direction '+Math.round(f.dd)+'°. Anisotropy was left unchanged.</div>'});
+// ====================== intercepts (composites, true width, g.m) ======================
+$('iFit').onclick=()=>{if(!D){$('iOut').innerHTML='<div class="msg">Load data first.</div>';return}const code=D.codes[+$('iUnit').value],f=fitPlane(code);if(!f){$('iOut').innerHTML='<div class="msg">Not enough contact points for '+esc(code)+'.</div>';return}$('iDip').value=Math.round(f.dip);$('iDD').value=Math.round(f.dd);$('iOut').innerHTML='<div class="msg good">Plane fitted through '+f.n+' contacts of '+esc(code)+': dip '+Math.round(f.dip)+'°, dir '+Math.round(f.dd)+'°.</div>'};
+let COMPS=[];
+$('iRun').onclick=()=>{if(!D||!D.asRows.length){$('iOut').innerHTML='<div class="msg">Load data with assays first (tab 1).</div>';return}
+ const cut=+$('iCut').value,minL=+$('iMin').value,dil=+$('iDil').value,tc=+$('iTc').value||1e9,fr=frame(+$('iDip').value,+$('iDD').value),nrm=fr.n;const bh={};D.asRows.forEach(a=>(bh[a.h]=bh[a.h]||[]).push({f:a.f,t:a.t,v:Math.min(a.v,tc)}));COMPS=[];let low=0;
+ Object.keys(bh).forEach(h=>{const a=bh[h].sort((p,q)=>p.f-q.f),n=a.length,ct=i=>i>0&&Math.abs(a[i].f-a[i-1].t)<1e-6;let i=0;while(i<n){if(a[i].v>=cut){let end=i,j=i+1;while(j<n){if(ct(j)&&a[j].v>=cut){end=j;j++;continue}let k=j,dl=0,ok=true;while(k<n&&a[k].v<cut){if(!ct(k)){ok=false;break}dl+=a[k].t-a[k].f;k++}if(ok&&k<n&&a[k].v>=cut&&ct(k)&&dl<=dil+1e-9){end=k;j=k+1}else break}
+   const wavg=(s,e)=>{let L=0,S=0;for(let q=s;q<=e;q++){const l=a[q].t-a[q].f;L+=l;S+=l*a[q].v}return[L,S/L]};let[len,avg]=wavg(i,end);if(avg<cut){end=i;while(end+1<n&&ct(end+1)&&a[end+1].v>=cut)end++;[len,avg]=wavg(i,end)}
+   if(len>=minL-1e-9){const f=a[i].f,t=a[end].t,mid=(f+t)/2,p1=D.pos(h,mid-.5),p2=D.pos(h,mid+.5);let dv=[p2[0]-p1[0],p2[1]-p1[1],p2[2]-p1[2]];const L=Math.hypot(...dv);dv=dv.map(v=>v/L);const tf=Math.abs(nrm[0]*dv[0]+nrm[1]*dv[1]+nrm[2]*dv[2]);if(tf<.2)low++;let mx=0;for(let q=i;q<=end;q++)mx=Math.max(mx,a[q].v);const pm=D.pos(h,mid);COMPS.push({h,f,t,len,au:avg,mx,tw:len*tf,gm:avg*len*tf,x:pm[0],y:pm[1],z:pm[2]})}i=end+1}else i++}});
+ const tw=COMPS.reduce((s,c)=>s+c.tw,0),gm=COMPS.reduce((s,c)=>s+c.gm,0),best=COMPS.reduce((s,c)=>c.gm>s.gm?c:s,{gm:0,h:'–'});
+ let h=`<div class="kpis"><div class="kpi"><b>${COMPS.length}</b><span>intercepts ≥ ${cut} g/t</span></div><div class="kpi"><b>${tw?f2(gm/tw):'–'}</b><span>true-width mean g/t</span></div><div class="kpi"><b>${best.gm?f1(best.gm)+' g·m':'–'}</b><span>best (${esc(best.h)})</span></div></div>`;
+ if(low)h+=`<div class="msg">${low} intercept(s) where the hole is nearly parallel to the vein (angle factor below 0.2): true width unreliable.</div>`;
+ h+=COMPS.length?`<div class="scroll"><table><tr><th>Hole</th><th>From</th><th>To</th><th>Length</th><th>Au g/t</th><th>Max</th><th>True width</th><th>g·m</th></tr>${COMPS.map(c=>`<tr><td>${esc(c.h)}</td><td>${c.f}</td><td>${c.t}</td><td>${f2(c.len)}</td><td>${f2(c.au)}</td><td>${f1(c.mx)}</td><td>${f2(c.tw)}</td><td>${f1(c.gm)}</td></tr>`).join('')}</table></div><button class="btn sec sm" id="iCp">Copy as CSV</button> <span class="hint">Tick “Intercepts” in tab 3 to see them in the 3D model.</span>`:'<div class="msg">No intercepts at this cut-off and minimum length.</div>';
+ $('iOut').innerHTML=h+(COMPS.length?shootBlock():'');drawShoot();const b=$('iCp');if(b)b.onclick=async()=>{const o=b.textContent;try{await navigator.clipboard.writeText('hole,from,to,length,au_gpt,max_gpt,true_width,g_m\n'+COMPS.map(c=>[c.h,c.f,c.t,f2(c.len),f2(c.au),f1(c.mx),f2(c.tw),f1(c.gm)].join(',')).join('\n'));b.textContent='Copied'}catch(e){b.textContent='Copy blocked here'}setTimeout(()=>b.textContent=o,1600)}};
+
+// ====================== structure (stereonet) ======================
+const STC=['#1f6f78','#c4151c','#b7791f','#7b4fa3','#2a9d8f','#e76f51','#3a6ea5'];
+function orientOf(rows){if(!rows.length)return null;let m=[0,0,0];rows.forEach(r=>{const d=r.dp*R,a=r.dd*R;m[0]+=S(d)*S(a);m[1]+=S(d)*C(a);m[2]+=C(d)});const L=Math.hypot(...m),n=m.map(v=>v/L);return{n:rows.length,dip:Math.acos(Math.min(1,n[2]))/R,dd:((Math.atan2(n[0],n[1])/R)+360)%360,R:L/rows.length}}
+const netXY=(trend,plunge)=>{const th=(90-plunge)*R,r=Math.SQRT2*S(th/2);return[r*S(trend*R),r*C(trend*R)]};
+function drawStruct(){if(!D)return;const types=[...new Set(D.struct.map(s=>s.t))];$('stSel').innerHTML=types.map(t=>`<option>${esc(t)}</option>`).join('');
+ if(!types.length){$('gnet').innerHTML='<div class="hint" style="padding:30px">No structural measurements loaded (tab 1, optional).</div>';$('stTab').innerHTML='';return}
+ const tr=[],shapes=[{type:'circle',x0:-1,y0:-1,x1:1,y1:1,line:{color:'#333'}},{type:'line',x0:-1,x1:1,y0:0,y1:0,line:{color:'#ccc',width:1}},{type:'line',x0:0,x1:0,y0:-1,y1:1,line:{color:'#ccc',width:1}}];let h='<table><tr><th>Type</th><th>n</th><th>Dip dir</th><th>Dip</th><th>Concentration</th></tr>';
+ types.forEach((t,i)=>{const rows=D.struct.filter(s=>s.t===t),c=STC[i%STC.length],xy=rows.map(r=>netXY((r.dd+180)%360,90-r.dp));tr.push({type:'scatter',mode:'markers',x:xy.map(p=>p[0]),y:xy.map(p=>p[1]),marker:{size:8,color:c,line:{width:1,color:'#fff'}},name:t+' (poles)',text:rows.map(r=>r.id+' '+t+' '+Math.round(r.dd)+'/'+Math.round(r.dp)),hoverinfo:'text'});
+  const o=orientOf(rows);if(o){const g=[];for(let ph=0;ph<=180;ph+=3){const strike=o.dd-90,tau=strike+ph,p=Math.atan(Math.tan(o.dip*R)*S(ph*R))/R;g.push(netXY(((tau%360)+360)%360,p))}tr.push({type:'scatter',mode:'lines',x:g.map(p=>p[0]),y:g.map(p=>p[1]),line:{color:c,width:1.5},name:t+' mean plane',hoverinfo:'name'});h+=`<tr><td>${esc(t)}</td><td>${o.n}</td><td>${String(Math.round(o.dd)).padStart(3,'0')}°</td><td>${Math.round(o.dip)}°</td><td>${f2(o.R)}</td></tr>`}});
+ $('stTab').innerHTML=h+'</table><div class="hint">Concentration near 1 = tightly clustered; near 0 = scattered.</div>';
+ Plotly.react('gnet',tr,{margin:{l:10,r:10,t:10,b:10},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',shapes,xaxis:{visible:false,range:[-1.1,1.1],scaleanchor:'y'},yaxis:{visible:false,range:[-1.1,1.1]},legend:{orientation:'h',y:-.02},annotations:[{x:0,y:1.07,text:'N',showarrow:false}]},CFG)}
+function stPlane(){const o=orientOf(D.struct.filter(s=>s.t===$('stSel').value));if(!o)$('stMsg').innerHTML='<div class="msg">No measurements of this type.</div>';return o}
+$('stIC').onclick=()=>{if(!D)return;const o=stPlane();if(!o)return;$('iDip').value=Math.round(o.dip);$('iDD').value=Math.round(o.dd);$('stMsg').innerHTML='<div class="msg good">Intercept plane set to '+Math.round(o.dd)+'/'+Math.round(o.dip)+' (tab 6).</div>'};
+$('stF').onclick=()=>{if(!D)return;const o=stPlane();if(!o)return;$('fDip').value=Math.round(o.dip);$('fDD').value=Math.round(o.dd);$('fOn').value='1';$('stMsg').innerHTML='<div class="msg good">Fault plane set to dip '+Math.round(o.dip)+'°, direction '+Math.round(o.dd)+'° (tab 2). Set the point and the throw, then rebuild.</div>'};
+// ====================== ore-shoot (long projection + regression) ======================
+function wreg(x,y,w){let sw=0,sx=0,sy=0,sxx=0,sxy=0;for(let i=0;i<x.length;i++){sw+=w[i];sx+=w[i]*x[i];sy+=w[i]*y[i];sxx+=w[i]*x[i]*x[i];sxy+=w[i]*x[i]*y[i]}const b=(sw*sxy-sx*sy)/(sw*sxx-sx*sx);return{b,a:(sy-b*sx)/sw}}
+function shootBlock(){if(COMPS.length<6)return '<div class="hint">Need at least 6 intercepts for an ore-shoot estimate.</div><div id="lsP"></div>';const fr=frame(+$('iDip').value,+$('iDD').value);
+ const P=COMPS.map(c=>({us:fr.s[0]*c.x+fr.s[1]*c.y+fr.s[2]*c.z,vs:fr.p[0]*c.x+fr.p[1]*c.y+fr.p[2]*c.z,z:c.z,w:Math.max(c.gm,.01),c}));
+ const fit=wreg(P.map(p=>p.vs),P.map(p=>p.us),P.map(p=>p.w)),k=fit.b;const dv=[k*fr.s[0]+fr.p[0],k*fr.s[1]+fr.p[1],k*fr.s[2]+fr.p[2]],L=Math.hypot(...dv),plunge=Math.asin(Math.min(1,Math.abs(dv[2])/L))/R;let trend=Math.atan2(dv[0]*Math.sign(-dv[2]||-1),dv[1]*Math.sign(-dv[2]||-1))/R;trend=(trend+360)%360;
+ const fz=wreg(P.map(p=>p.z),P.map(p=>p.us),P.map(p=>p.w));return '<h2>Ore-shoot estimate</h2><div class="msg good">Grade·thickness-weighted regression of '+P.length+' intercepts: the high-grade zone plunges about <b>'+Math.round(plunge)+'°</b> toward <b>'+String(Math.round(trend)).padStart(3,'0')+'°</b> within the plane '+Math.round(+$('iDD').value)+'/'+Math.round(+$('iDip').value)+'. Treat it as a hypothesis to test with more drilling, not a result.</div><div id="lsP" class="plot" style="height:420px"></div>'
+ +'<script type="application/json" id="lsD">'+JSON.stringify({us:P.map(p=>p.us),z:P.map(p=>p.z),gm:P.map(p=>p.c.gm),au:P.map(p=>p.c.au),h:P.map(p=>p.c.h),fa:fz.a,fb:fz.b})+'<\/script>'}
+function drawShoot(){const e=$('lsD');if(!e)return;const d=JSON.parse(e.textContent),zr=[Math.min(...d.z),Math.max(...d.z)];Plotly.react('lsP',[{type:'scatter',mode:'markers',x:d.us,y:d.z,marker:{size:d.gm.map(g=>8+Math.min(18,g*1.2)),color:d.au.map(a=>Math.log10(Math.max(a,.05))),colorscale:'Turbo',showscale:true,colorbar:{title:{text:'log10 Au'},thickness:10,len:.7},line:{width:1,color:'#fff'}},text:d.h.map((h,i)=>h+' · '+f1(d.gm[i])+' g·m · '+f2(d.au[i])+' g/t'),hoverinfo:'text',showlegend:false},{type:'scatter',mode:'lines',x:zr.map(z=>d.fa+d.fb*z),y:zr,line:{color:'#222',dash:'dash'},name:'shoot axis',hoverinfo:'skip'}],{margin:{l:60,r:10,t:30,b:45},title:{text:'Longitudinal projection onto the vein plane (size = g·m)',font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax('Position along strike (m, relative)'),yaxis:ax('RL (m, relative)')},CFG)}
+// ====================== grade ======================
+const gam=(h,N,Sl,A)=>h<=0?0:(h>=A?Sl:N+(Sl-N)*(1.5*h/A-.5*Math.pow(h/A,3)));
+function gradeSamples(ui){const code=M.U[ui].code,f=M.fault,tc=+$('gTc').value||1e9;return D.assay.filter(a=>a.c===code).map(a=>{const r=f?f.restore(a.x,a.y,a.z):[a.x,a.y,a.z];return{x:r[0],y:r[1],z:r[2],v:Math.min(a.au,tc),ox:a.x,oy:a.y,oz:a.z,h:a.h}})}
+function krige(smp,x,y,z,P,skip){const near=[],qq=P.T?P.T(x,y,z):[x,y,z];if(P.T)for(const s of smp)if(!s.q)s.q=P.T(s.x,s.y,s.z);for(const s of smp){if(s===skip)continue;const sq=P.T?s.q:s,d2=(sq[P.T?0:'x']-qq[0])**2+(sq[P.T?1:'y']-qq[1])**2+(sq[P.T?2:'z']-qq[2])**2;if(d2<=P.sr*P.sr)near.push([d2,s])}near.sort((a,b)=>a[0]-b[0]);const use=near.slice(0,P.mx);if(use.length<2)return null;
+ if(P.m==='idw'){let sw=0,sg=0;use.forEach(([d2,s])=>{const w=1/(d2+1);sw+=w;sg+=w*s.v});return{g:sg/sw,d:Math.sqrt(use[0][0]),n:use.length,nh:new Set(use.map(u=>u[1].h)).size}}
+ const n=use.length,Nn=n+1,A=new Float64Array(Nn*Nn),b=new Float64Array(Nn);for(let i=0;i<n;i++){for(let j=0;j<n;j++){const a=use[i][1],c=use[j][1];A[i*Nn+j]=P.T?gam(Math.hypot(a.q[0]-c.q[0],a.q[1]-c.q[1],a.q[2]-c.q[2]),P.N,P.Sl,P.R):gam(Math.sqrt((a.x-c.x)**2+(a.y-c.y)**2+(a.z-c.z)**2),P.N,P.Sl,P.R)}A[i*Nn+n]=1;A[n*Nn+i]=1;b[i]=gam(Math.sqrt(use[i][0]),P.N,P.Sl,P.R)}b[n]=1;
+ try{const w=solveMulti(A,b.slice(),Nn,1);let sw=0,sg=0;for(let i=0;i<n;i++){const ww=Math.max(0,w[i]);sw+=ww;sg+=ww*use[i][1].v}return{g:sw>0?sg/sw:use[0][1].v,d:Math.sqrt(use[0][0]),n,nh:new Set(use.map(u=>u[1].h)).size}}catch(e){return null}}
+const gP=()=>({T:$('gA').value==='1'?(()=>{const u=units()[+$('gU').value];return mkT(u.dip,u.dd,u.an)})():null,m:$('gM').value,N:+$('gN').value||0,Sl:+$('gSl').value||1,R:+$('gR').value||100,sr:+$('gSr').value||200,mx:Math.max(2,+$('gMx').value||12)});
+$('gRun').onclick=()=>{if(!M){$('gOut').innerHTML='<div class="msg">Build the model first.</div>';return}const ui=+$('gU').value,smp=gradeSamples(ui);if(smp.length<5){$('gOut').innerHTML='<div class="msg">Fewer than 5 assay samples in this unit. Load assays (tab 1) or choose another unit.</div>';return}
+ $('gOut').innerHTML='<div class="msg">Estimating…</div>';setTimeout(()=>{const {Uc,nx,ny,nz,cs,X0,Y0,Z0}=M,P=gP(),Gd=new Float32Array(Uc.length).fill(NaN),Cls=new Uint8Array(Uc.length);let n=0,sum=0,cnt=0,cl=[0,0,0];const dens=+$('gD').value||2.8;
+  for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i;if(Uc[id]!==ui)continue;n++;let x=X0+(i+.5)*cs,y=Y0+(j+.5)*cs,z=Z0+(k+.5)*cs;if(M.fault){const r=M.fault.restore(x,y,z);x=r[0];y=r[1];z=r[2]}const e=krige(smp,x,y,z,P);if(!e)continue;Gd[id]=e.g;sum+=e.g;cnt++;const cc=(e.d<=P.R*0.4&&e.nh>=3)?0:(e.d<=P.R*0.9&&e.nh>=2)?1:2;Cls[id]=cc;cl[cc]++}
+  GR={u:ui,G:Gd,Cls,smp,P};const mean=cnt?sum/cnt:0,t=cnt*cs**3*dens,sm=smp.reduce((a,s)=>a+s.v,0)/smp.length;
+  $('gOut').innerHTML=`<div class="msg good">Estimated ${nf(cnt)} of ${nf(n)} cells in ${esc(M.U[ui].name)}.</div><div class="kpis"><div class="kpi"><b>${f2(mean)}</b><span>mean block grade (g/t)</span></div><div class="kpi"><b>${f2(sm)}</b><span>sample mean (capped)</span></div><div class="kpi"><b>${nf(t)}</b><span>tonnes estimated</span></div><div class="kpi"><b>${nf(t*mean/31.1035)}</b><span>ounces (practice)</span></div><div class="kpi"><b>${cl[0]}/${cl[1]}/${cl[2]}</b><span>Measured / Indicated / Inferred cells</span></div></div><div class="hint">In tab 3 choose “Colour by: Estimated grade” to see the grades on the block model.</div>`;$('colBy').value='g';const cv=cs**3*dens,rows=[0,0.5,1,2,3,5,10].map(c=>{let n=0,s=0;for(let i=0;i<Gd.length;i++){const g=Gd[i];if(!isNaN(g)&&g>=c){n++;s+=g}}return[c,n*cv,n?s/n:0,s*cv/31.1035]});$('gtOut').innerHTML='<h2>Grade–tonnage</h2><div class="scroll"><table><tr><th>Cut-off (g/t)</th><th>Tonnes</th><th>Grade (g/t)</th><th>Ounces</th></tr>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${nf(r[1])}</td><td>${f2(r[2])}</td><td>${nf(r[3])}</td></tr>`).join('')+'</table></div>'},40)};
+$('gRep').onclick=async()=>{if(!GR){$('gOut').insertAdjacentHTML('afterbegin','<div class="msg">Run the grade estimate first.</div>');return}const co=+$('gCo').value||0,dens=+$('gD').value||2.8,cv=M.cs**3*dens,nm=['Measured','Indicated','Inferred'],a=[0,1,2].map(()=>({t:0,g:0}));for(let i=0;i<GR.G.length;i++){const g=GR.G[i];if(isNaN(g)||g<co)continue;const c=GR.Cls[i];a[c].t+=cv;a[c].g+=g*cv}let txt='PRACTICE SUMMARY (not a reportable resource)\nUnit: '+M.U[GR.u].name+'; cut-off '+co+' g/t; density '+dens+'; method '+(GR.P.m==='ok'?'ordinary kriging':'IDW')+(GR.P.T?' (anisotropic)':'')+'; block '+f1(M.cs)+' m\nClass,Tonnes,Au g/t,Ounces\n';let T=0,G=0;a.forEach((r,i)=>{T+=r.t;G+=r.g;txt+=nm[i]+','+nf(r.t)+','+(r.t?f2(r.g/r.t):'-')+','+nf(r.g/31.1035)+'\n'});txt+='Total,'+nf(T)+','+(T?f2(G/T):'-')+','+nf(G/31.1035)+'\n';try{await navigator.clipboard.writeText(txt);$('gOut').insertAdjacentHTML('afterbegin','<div class="msg good">Copied.<pre>'+esc(txt)+'</pre></div>')}catch(e){$('gOut').insertAdjacentHTML('afterbegin','<div class="msg">Clipboard blocked; copy from here:<pre>'+esc(txt)+'</pre></div>')}};
+let VGX=null;function vgModel(){if(!VGX)return;const R_=+$('gR').value||100,mh=VGX.mh;Plotly.restyle('vgP',{y:[mh.map(h=>gam(h,+$('gN').value||0,+$('gSl').value||1,R_))]},[1])}
+['gN','gSl','gR'].forEach(i=>$(i).addEventListener('input',vgModel));
+$('vgFit').onclick=()=>{if(!VGX){$('gOut').innerHTML='<div class="msg">Compute the variogram first.</div>';return}let best=null;const vr=VGX.vr;for(let n=0;n<=vr*0.9;n+=vr/40)for(let s=Math.max(n+vr*0.05,vr*0.3);s<=vr*1.6;s+=vr/40)for(let r=VGX.maxH/12;r<=VGX.maxH;r+=VGX.maxH/40){let e=0;VGX.hx.forEach((h,i)=>{const d=gam(h,n,s-n>0?s:n+1e-6,r)-VGX.gy[i];e+=d*d});if(!best||e<best.e)best={e,n,s,r}}$('gN').value=f2(best.n);$('gSl').value=f2(best.s);$('gR').value=Math.round(best.r);vgModel();$('gOut').innerHTML='<div class="msg good">Fitted: nugget '+f2(best.n)+', sill '+f2(best.s)+', range '+Math.round(best.r)+' m (least squares on the experimental points). Check it by eye, then run the estimate.</div>'};
+$('vgBtn').onclick=()=>{const ui=+$('gU').value,smp=gradeSamples(ui);if(smp.length<20){$('gOut').innerHTML='<div class="msg">Need at least 20 assay samples in the unit for a variogram (found '+smp.length+').</div>';return}
+ const R_=+$('gR').value||100,maxH=Math.max(10,R_*1.6),nb=12,lag=maxH/nb,sum=new Array(nb).fill(0),cnt=new Array(nb).fill(0);for(let i=0;i<smp.length;i++)for(let j=i+1;j<smp.length;j++){const h=Math.sqrt((smp[i].x-smp[j].x)**2+(smp[i].y-smp[j].y)**2+(smp[i].z-smp[j].z)**2);if(h>=maxH||h<=0)continue;const b=Math.floor(h/lag);sum[b]+=.5*(smp[i].v-smp[j].v)**2;cnt[b]++}
+ const hx=[],gy=[];for(let b=0;b<nb;b++)if(cnt[b]>=5){hx.push((b+.5)*lag);gy.push(sum[b]/cnt[b])}const mean=smp.reduce((a,s)=>a+s.v,0)/smp.length,vr=smp.reduce((a,s)=>a+(s.v-mean)**2,0)/smp.length,mh=Array.from({length:60},(_,i)=>i*maxH/59);
+ VGX={hx,gy,mh,maxH,vr};$('vgP').style.display='block';Plotly.react('vgP',[{type:'scatter',mode:'markers',x:hx,y:gy,marker:{size:8,color:'#1f6f78'},name:'experimental'},{type:'scatter',mode:'lines',x:mh,y:mh.map(h=>gam(h,+$('gN').value||0,+$('gSl').value||1,R_)),line:{color:'#c4151c'},name:'spherical model'},{type:'scatter',mode:'lines',x:[0,maxH],y:[vr,vr],line:{color:'#888',dash:'dot'},name:'sample variance'}],{margin:{l:60,r:10,t:30,b:45},title:{text:'Experimental variogram – '+smp.length+' samples (variance '+f1(vr)+')',font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax('Lag distance (m)'),yaxis:ax('Semivariance',{rangemode:'tozero'}),legend:{orientation:'h',y:-.25}},CFG)};
+$('swRun').onclick=()=>{if(!GR){$('sOut').innerHTML='<div class="msg">Run the grade estimate first.</div>';return}const {Uc,nx,ny,nz,cs,X0,Y0,Z0}=M,ax_=$('swA').value,W=+$('swW').value||75,org={x:X0,y:Y0,z:Z0}[ax_]+({x:D.ox,y:D.oy,z:D.oz})[ax_];const bins={};
+ for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i,g=GR.G[id];if(isNaN(g))continue;const c={x:X0+(i+.5)*cs,y:Y0+(j+.5)*cs,z:Z0+(k+.5)*cs}[ax_]+({x:D.ox,y:D.oy,z:D.oz})[ax_],b=Math.floor(c/W);(bins[b]=bins[b]||{bs:0,bn:0,ss:0,sn:0}).bs+=g,bins[b].bn++}
+ GR.smp.forEach(s=>{const c={x:s.ox,y:s.oy,z:s.oz}[ax_]+({x:D.ox,y:D.oy,z:D.oz})[ax_]-({x:s.ox,y:s.oy,z:s.oz}[ax_])+({x:s.ox,y:s.oy,z:s.oz}[ax_]);const b=Math.floor((({x:s.ox,y:s.oy,z:s.oz})[ax_]+({x:D.ox,y:D.oy,z:D.oz})[ax_])/W);if(bins[b]){bins[b].ss+=s.v;bins[b].sn++}});
+ const ks=Object.keys(bins).map(Number).sort((a,b)=>a-b),xs=ks.map(b=>(b+.5)*W);
+ $('swP').style.display='block';Plotly.react('swP',[{type:'scatter',mode:'lines+markers',x:xs,y:ks.map(b=>bins[b].bs/bins[b].bn),name:'block mean',line:{color:'#1f6f78'}},{type:'scatter',mode:'lines+markers',x:xs,y:ks.map(b=>bins[b].sn?bins[b].ss/bins[b].sn:null),name:'sample mean',line:{color:'#c4151c',dash:'dot'}}],{margin:{l:55,r:10,t:30,b:45},title:{text:'Swath plot – '+M.U[GR.u].name,font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax({x:'East',y:'North',z:'RL'}[ax_]+' (m)'),yaxis:ax('Au g/t'),legend:{orientation:'h',y:-.25}},CFG);
+ const dc=+$('dcC').value||100,cells={};GR.smp.forEach(s=>{const k=Math.floor(s.ox/dc)+'_'+Math.floor(s.oy/dc)+'_'+Math.floor(s.oz/dc);(cells[k]=cells[k]||[]).push(s)});let sw=0,sg=0;Object.values(cells).forEach(a=>a.forEach(s=>{const w=1/a.length;sw+=w;sg+=w*s.v}));const nm=GR.smp.reduce((a,s)=>a+s.v,0)/GR.smp.length;
+ $('sOut').innerHTML=`<div class="msg good">Declustering (cell ${dc} m): naive sample mean <b>${f2(nm)}</b> g/t, declustered mean <b>${f2(sg/sw)}</b> g/t (${Object.keys(cells).length} cells). If the declustered mean is lower, the drilling is clustered in the high-grade zone.</div>`};
+$('cvRun').onclick=()=>{if(!GR){$('sOut').innerHTML='<div class="msg">Run the grade estimate first (it supplies the unit and samples).</div>';return}const P=Object.assign(gP(),{m:'ok'}),smp=GR.smp,step=Math.max(1,Math.floor(smp.length/300)),est=[],act=[];
+ for(let i=0;i<smp.length;i+=step){const s=smp[i],e=krige(smp,s.x,s.y,s.z,P,s);if(e){est.push(e.g);act.push(s.v)}}
+ if(est.length<10){$('sOut').innerHTML='<div class="msg">Too few valid cross-validation points. Increase range/search.</div>';return}
+ const n=est.length,me=est.reduce((a,v,i)=>a+v-act[i],0)/n,rm=Math.sqrt(est.reduce((a,v,i)=>a+(v-act[i])**2,0)/n),ma=act.reduce((a,b)=>a+b,0)/n,mE=est.reduce((a,b)=>a+b,0)/n;let sxy=0,sxx=0,syy=0;est.forEach((v,i)=>{sxy+=(v-mE)*(act[i]-ma);sxx+=(v-mE)**2;syy+=(act[i]-ma)**2});const r=sxy/Math.sqrt(sxx*syy),slope=sxy/sxx;
+ $('cvP').style.display='block';const mx=Math.max(...est,...act);Plotly.react('cvP',[{type:'scatter',mode:'markers',x:est,y:act,marker:{size:6,color:'#1f6f78',opacity:.7},showlegend:false},{type:'scatter',mode:'lines',x:[0,mx],y:[0,mx],line:{color:'#888',dash:'dash'},showlegend:false}],{margin:{l:55,r:10,t:30,b:45},title:{text:'Leave-one-out cross-validation (kriging)',font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax('Estimated g/t'),yaxis:ax('Actual g/t')},CFG);
+ $('sOut').innerHTML=`<div class="msg good">Cross-validation on ${n} samples: mean error <b>${f2(me)}</b> g/t, RMSE <b>${f2(rm)}</b>, correlation <b>${f2(r)}</b>, slope of actual on estimate <b>${f2(slope)}</b> (ideal: error ≈ 0, slope ≈ 1). Adjust nugget, sill and range and run again.</div>`};
+// ====================== export ======================
+function blockRows(head,fmt){if(!M)return'';const {Uc,nx,ny,nz,cs,X0,Y0,Z0}=M,r=[head];for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i,u=Uc[id];if(u<0)continue;const g=GR&&GR.u===u&&!isNaN(GR.G[id])?f2(GR.G[id]):'-99',cl=GR&&GR.u===u&&GR.Cls?GR.Cls[id]+1:0;r.push(fmt(X0+(i+.5)*cs+D.ox,Y0+(j+.5)*cs+D.oy,Z0+(k+.5)*cs+D.oz,cs,M.U[u].code,g,cl).join(','))}return r.join('\n')}
+$('eDm').onclick=()=>copy(blockRows('XC,YC,ZC,XINC,YINC,ZINC,UNIT,AU,CLASS',(x,y,z,c,u,g,cl)=>[f1(x),f1(y),f1(z),c,c,c,u,g,cl]),'Datamine-style block model; import as CSV and map the columns (not validated in Datamine)');
+$('eSp').onclick=()=>copy(blockRows('y,x,z,y_size,x_size,z_size,unit,au,class',(x,y,z,c,u,g,cl)=>[f1(y),f1(x),f1(z),c,c,c,u,g,cl]),'Surpac-style block model (y,x,z order); import as CSV and map the columns (not validated in Surpac)');
+$('eVo').onclick=()=>{if(!VEINS.length){$('eMsg').textContent='Build a vein or shell first (Modeller tab).';return}let o='# vein meshes\n',off=0;VEINS.forEach(v=>{o+='g '+v.name.replace(/\s+/g,'_')+'\n';for(let q=0;q<v.mesh.X.length;q++)o+='v '+f1(v.mesh.X[q]+D.ox)+' '+f1(v.mesh.Y[q]+D.oy)+' '+f1(v.mesh.Z[q]+D.oz)+'\n';for(let q=0;q<v.mesh.I.length;q++)o+='f '+(off+v.mesh.I[q]+1)+' '+(off+v.mesh.J[q]+1)+' '+(off+v.mesh.K[q]+1)+'\n';off+=v.mesh.X.length});copy(o,'Vein meshes (OBJ)')};
+async function copy(t,msg){try{await navigator.clipboard.writeText(t);$('eMsg').textContent=msg+' (copied)'}catch(e){$('eMsg').textContent='Clipboard blocked in this view'}}
+$('eCsv').onclick=()=>{if(!M)return;const {Uc,nx,ny,nz,cs,X0,Y0,Z0}=M,r=['east,north,rl,unit,grade_gpt'];for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const id=(k*ny+j)*nx+i,u=Uc[id];if(u<0)continue;r.push([f1(X0+(i+.5)*cs+D.ox),f1(Y0+(j+.5)*cs+D.oy),f1(Z0+(k+.5)*cs+D.oz),M.U[u].code,GR&&GR.u===u&&!isNaN(GR.G[id])?f2(GR.G[id]):''].join(','))}copy(r.join('\n'),r.length-1+' blocks')};
+$('eSum').onclick=()=>{if(!M)return;copy('unit,volume_m3,subblocked_m3\n'+M.U.map((u,i)=>[u.name,Math.round(M.vol[i]),M.refined?Math.round(M.refined[i]):''].join(',')).join('\n'),'summary')};
+$('eObj').onclick=()=>{if(!M)return;const fs=skin({vis:M.U.map(()=>true),cx:1e9,cy:-1e9,cz:1e9,top:false}),{cs,X0,Y0,Z0}=M,out=[],byU={};fs.forEach(f=>(byU[M.Uc[f[4]]]=byU[M.Uc[f[4]]]||[]).push(f));let v=0;
+ Object.keys(byU).forEach(u=>{out.push('g '+M.U[u].name.replace(/\s+/g,'_'));byU[u].forEach(([i,j,k,fi])=>{const f=FACE[fi],x=X0+i*cs+D.ox,y=Y0+j*cs+D.oy,z=Z0+k*cs+D.oz;let q;if(f[0]===1)q=[[x+cs,y,z],[x+cs,y+cs,z],[x+cs,y+cs,z+cs],[x+cs,y,z+cs]];else if(f[0]===-1)q=[[x,y,z],[x,y,z+cs],[x,y+cs,z+cs],[x,y+cs,z]];else if(f[1]===1)q=[[x,y+cs,z],[x,y+cs,z+cs],[x+cs,y+cs,z+cs],[x+cs,y+cs,z]];else if(f[1]===-1)q=[[x,y,z],[x+cs,y,z],[x+cs,y,z+cs],[x,y,z+cs]];else if(f[2]===1)q=[[x,y,z+cs],[x+cs,y,z+cs],[x+cs,y+cs,z+cs],[x,y+cs,z+cs]];else q=[[x,y,z],[x,y+cs,z],[x+cs,y+cs,z],[x+cs,y,z]];q.forEach(p=>out.push('v '+p.map(f1).join(' ')));out.push(`f ${v+1} ${v+2} ${v+3} ${v+4}`);v+=4})});copy(out.join('\n'),fs.length+' faces')};
+const QCEX=`run_order,batch,qc_type,crm,result_Au_gpt,certified_Au_gpt,certified_sd,original_Au_gpt,sample_ref
+6,1,CRM,LOW,0.52,0.52,0.03,,SYN-001 6-7 m
+18,1,BLK,,0.0044,,,,SYN-001 18-19 m
+37,1,FDUP,,0.56,,,0.622,SYN-001 37-38 m
+54,1,CRM,HIGH,4.982,5.1,0.22,,SYN-001 54-55 m
+66,1,BLK,,0.0035,,,,SYN-001 66-67 m
+71,1,PDUP,,0.245,,,0.265,SYN-001 71-72 m
+102,2,CRM,LOW,0.521,0.52,0.03,,SYN-001 102-103 m
+114,2,BLK,,0.0056,,,,SYN-002 2-3 m
+150,2,CRM,HIGH,5.035,5.1,0.22,,SYN-002 38-39 m
+162,2,BLK,,0.0033,,,,SYN-002 50-51 m
+189,2,FDUP,,1.024,,,0.85,SYN-002 77-78 m
+198,2,CRM,LOW,0.526,0.52,0.03,,SYN-002 86-87 m
+210,3,BLK,,0.0041,,,,SYN-002 98-99 m
+246,3,CRM,HIGH,4.977,5.1,0.22,,SYN-002 134-135 m
+258,3,BLK,,0.004,,,,SYN-002 146-147 m
+294,3,CRM,LOW,0.533,0.52,0.03,,SYN-003 13-14 m
+306,4,BLK,,0.0024,,,,SYN-003 25-26 m
+342,4,CRM,HIGH,5.04,5.1,0.22,,SYN-003 61-62 m
+354,4,BLK,,0.0017,,,,SYN-003 73-74 m
+390,4,CRM,LOW,0.497,0.52,0.03,,SYN-003 109-110 m
+396,4,PDUP,,0.973,,,1.128,SYN-003 115-116 m
+402,5,BLK,,0.0037,,,,SYN-003 121-122 m
+428,5,FDUP,,0.238,,,0.327,SYN-003 147-148 m
+438,5,CRM,HIGH,5.136,5.1,0.22,,SYN-003 157-158 m
+450,5,BLK,,0.0042,,,,SYN-003 169-170 m
+486,5,CRM,LOW,0.517,0.52,0.03,,SYN-003 205-206 m
+498,5,BLK,,0.001,,,,SYN-003 217-218 m
+534,6,CRM,HIGH,5.029,5.1,0.22,,SYN-004 27-28 m
+541,6,PDUP,,0.131,,,0.132,SYN-004 34-35 m
+545,6,FDUP,,0.185,,,0.18,SYN-004 38-39 m
+546,6,BLK,,0.0022,,,,SYN-004 39-40 m
+548,6,PDUP,,0.113,,,0.117,SYN-004 41-42 m
+576,6,FDUP,,0.11,,,0.14,SYN-004 69-70 m
+581,6,PDUP,,0.096,,,0.102,SYN-004 74-75 m
+582,6,CRM,LOW,0.539,0.52,0.03,,SYN-004 75-76 m
+594,6,BLK,,0.003,,,,SYN-004 87-88 m
+630,7,CRM,HIGH,5.096,5.1,0.22,,SYN-005 11-12 m
+642,7,BLK,,0.0051,,,,SYN-005 23-24 m
+678,7,CRM,LOW,0.509,0.52,0.03,,SYN-005 59-60 m
+690,7,BLK,,0.0039,,,,SYN-005 71-72 m
+697,7,FDUP,,2.306,,,2.211,SYN-005 78-79 m
+726,8,CRM,HIGH,5.108,5.1,0.22,,SYN-005 107-108 m
+730,8,PDUP,,0.227,,,0.25,SYN-005 111-112 m
+738,8,BLK,,0.0041,,,,SYN-005 119-120 m
+774,8,CRM,LOW,0.544,0.52,0.03,,SYN-005 155-156 m
+786,8,BLK,,0.0021,,,,SYN-005 167-168 m
+822,9,CRM,HIGH,5.609,5.1,0.22,,SYN-006 34-35 m
+834,9,BLK,,0.0041,,,,SYN-006 46-47 m
+870,9,CRM,LOW,0.556,0.52,0.03,,SYN-006 82-83 m
+882,9,BLK,,0.0064,,,,SYN-006 94-95 m
+918,10,CRM,HIGH,5.597,5.1,0.22,,SYN-006 130-131 m
+930,10,BLK,,0.0026,,,,SYN-006 142-143 m
+935,10,FDUP,,0.432,,,0.424,SYN-006 147-148 m
+966,10,CRM,LOW,0.578,0.52,0.03,,SYN-006 178-179 m
+978,10,BLK,,0.0038,,,,SYN-006 190-191 m
+1014,11,CRM,HIGH,5.586,5.1,0.22,,SYN-007 0-1 m
+1026,11,BLK,,0.0039,,,,SYN-007 12-13 m
+1048,11,PDUP,,0.163,,,0.155,SYN-007 34-35 m
+1052,11,FDUP,,0.527,,,0.368,SYN-007 38-39 m
+1055,11,PDUP,,8.969,,,9.467,SYN-007 41-42 m
+1058,11,FDUP,,0.424,,,0.403,SYN-007 44-45 m
+1062,11,PDUP,,0.254,,,0.264,SYN-007 48-49 m
+1062,11,CRM,LOW,0.57,0.52,0.03,,SYN-007 48-49 m
+1074,11,BLK,,0.0026,,,,SYN-007 60-61 m
+1083,11,FDUP,,0.381,,,0.44,SYN-007 69-70 m
+1086,11,PDUP,,0.33,,,0.335,SYN-007 72-73 m
+1090,11,FDUP,,0.212,,,0.169,SYN-007 76-77 m
+1110,12,CRM,HIGH,5.647,5.1,0.22,,SYN-007 96-97 m
+1122,12,BLK,,0.0024,,,,SYN-007 108-109 m
+1158,12,CRM,LOW,0.554,0.52,0.03,,SYN-008 32-33 m
+1170,12,BLK,,0.0048,,,,SYN-008 44-45 m
+1198,12,PDUP,,0.09,,,0.105,SYN-008 72-73 m
+1201,13,FDUP,,0.191,,,0.215,SYN-008 75-76 m
+1205,13,PDUP,,9.68,,,9.756,SYN-008 79-80 m
+1206,13,CRM,HIGH,5.266,5.1,0.22,,SYN-008 80-81 m
+1206,13,BLK,,0.0868,,,,SYN-008 80-81 m
+1208,13,FDUP,,0.143,,,0.157,SYN-008 82-83 m
+1212,13,PDUP,,0.11,,,0.112,SYN-008 86-87 m
+1218,13,BLK,,0.0058,,,,SYN-008 92-93 m
+1235,13,FDUP,,0.164,,,0.183,SYN-008 109-110 m
+1238,13,PDUP,,2.038,,,2.088,SYN-008 112-113 m
+1254,13,CRM,LOW,0.526,0.52,0.03,,SYN-008 128-129 m
+1266,13,BLK,,0.0039,,,,SYN-008 140-141 m
+1302,14,CRM,HIGH,5.074,5.1,0.22,,SYN-009 7-8 m
+1314,14,BLK,,0.0027,,,,SYN-009 19-20 m
+1350,14,CRM,LOW,0.52,0.52,0.03,,SYN-009 55-56 m
+1362,14,BLK,,0.0035,,,,SYN-009 67-68 m
+1398,14,CRM,HIGH,5.254,5.1,0.22,,SYN-009 103-104 m
+1405,15,FDUP,,0.15,,,0.127,SYN-009 110-111 m
+1410,15,PDUP,,0.138,,,0.138,SYN-009 115-116 m
+1410,15,BLK,,0.0048,,,,SYN-009 115-116 m
+1413,15,FDUP,,1.106,,,1.259,SYN-009 118-119 m
+1444,15,PDUP,,0.453,,,0.416,SYN-009 149-150 m
+1446,15,CRM,LOW,0.52,0.52,0.03,,SYN-009 151-152 m
+1458,15,BLK,,0.0047,,,,SYN-009 163-164 m
+1494,15,CRM,HIGH,4.93,5.1,0.22,,SYN-009 199-200 m
+1506,16,BLK,,0.0044,,,,SYN-009 211-212 m
+1542,16,CRM,LOW,0.49,0.52,0.03,,SYN-010 21-22 m
+1554,16,BLK,,0.0016,,,,SYN-010 33-34 m
+1555,16,FDUP,,0.394,,,0.425,SYN-010 34-35 m
+1558,16,PDUP,,0.208,,,0.223,SYN-010 37-38 m
+1562,16,FDUP,,23.014,,,21.623,SYN-010 41-42 m
+1565,16,PDUP,,0.927,,,0.775,SYN-010 44-45 m
+1568,16,FDUP,,0.361,,,0.444,SYN-010 47-48 m
+1588,16,PDUP,,0.406,,,0.427,SYN-010 67-68 m
+1590,16,CRM,HIGH,5.127,5.1,0.22,,SYN-010 69-70 m
+1591,16,FDUP,,0.364,,,0.322,SYN-010 70-71 m
+1595,16,PDUP,,3.986,,,4.043,SYN-010 74-75 m
+1598,16,FDUP,,0.439,,,0.462,SYN-010 77-78 m
+1601,17,PDUP,,0.178,,,0.168,SYN-010 80-81 m
+1602,17,BLK,,0.0046,,,,SYN-010 81-82 m
+1638,17,CRM,LOW,0.501,0.52,0.03,,SYN-011 5-6 m
+1650,17,BLK,,0.0039,,,,SYN-011 17-18 m
+1686,17,CRM,HIGH,3.9,5.1,0.22,,SYN-011 53-54 m
+1698,17,BLK,,0.0027,,,,SYN-011 65-66 m
+1706,18,FDUP,,0.364,,,0.341,SYN-011 73-74 m
+1709,18,PDUP,,0.609,,,0.652,SYN-011 76-77 m
+1712,18,FDUP,,9.891,,,6.836,SYN-011 79-80 m
+1716,18,PDUP,,0.748,,,0.737,SYN-011 83-84 m
+1719,18,FDUP,,0.349,,,0.341,SYN-011 86-87 m
+1734,18,CRM,LOW,0.509,0.52,0.03,,SYN-011 101-102 m
+1738,18,PDUP,,0.128,,,0.129,SYN-011 105-106 m
+1742,18,FDUP,,0.272,,,0.448,SYN-011 109-110 m
+1745,18,PDUP,,1.421,,,1.556,SYN-011 112-113 m
+1746,18,BLK,,0.0044,,,,SYN-011 113-114 m
+1748,18,FDUP,,0.183,,,0.311,SYN-011 115-116 m
+1782,18,CRM,HIGH,5.212,5.1,0.22,,SYN-011 149-150 m
+1794,18,BLK,,0.0019,,,,SYN-011 161-162 m
+1830,19,CRM,LOW,0.534,0.52,0.03,,SYN-012 28-29 m
+1842,19,BLK,,0.003,,,,SYN-012 40-41 m
+1878,19,CRM,HIGH,5.203,5.1,0.22,,SYN-012 76-77 m
+1890,19,BLK,,0.0042,,,,SYN-012 88-89 m
+1911,20,PDUP,,0.153,,,0.173,SYN-012 109-110 m
+1914,20,FDUP,,0.339,,,0.248,SYN-012 112-113 m
+1918,20,PDUP,,15.557,,,13.862,SYN-012 116-117 m
+1918,20,BLK,,0.0741,,,,SYN-012 116-117 m
+1921,20,FDUP,,4.62,,,4.909,SYN-012 119-120 m
+1924,20,PDUP,,0.18,,,0.195,SYN-012 122-123 m
+1926,20,CRM,LOW,0.54,0.52,0.03,,SYN-012 124-125 m
+1938,20,BLK,,0.0033,,,,SYN-012 136-137 m
+1947,20,FDUP,,0.21,,,0.213,SYN-012 145-146 m
+1950,20,PDUP,,0.135,,,0.144,SYN-012 148-149 m
+1953,20,FDUP,,0.091,,,0.106,SYN-012 151-152 m
+1974,20,CRM,HIGH,4.931,5.1,0.22,,SYN-012 172-173 m
+1986,20,BLK,,0.0055,,,,SYN-012 184-185 m
+2022,21,CRM,LOW,0.517,0.52,0.03,,SYN-012 220-221 m
+2034,21,BLK,,0.0052,,,,SYN-013 6-7 m
+2061,21,PDUP,,0.134,,,0.134,SYN-013 33-34 m
+2064,21,FDUP,,0.127,,,0.151,SYN-013 36-37 m
+2067,21,PDUP,,8.401,,,8.623,SYN-013 39-40 m
+2070,21,CRM,HIGH,5.026,5.1,0.22,,SYN-013 42-43 m
+2071,21,FDUP,,9.057,,,9.039,SYN-013 43-44 m
+2074,21,PDUP,,0.213,,,0.22,SYN-013 46-47 m
+2077,21,FDUP,,0.148,,,0.159,SYN-013 49-50 m
+2082,21,BLK,,0.0023,,,,SYN-013 54-55 m
+2098,21,PDUP,,0.579,,,0.618,SYN-013 70-71 m
+2101,22,FDUP,,7.24,,,4.788,SYN-013 73-74 m
+2105,22,PDUP,,0.261,,,0.275,SYN-013 77-78 m
+2108,22,FDUP,,0.228,,,0.297,SYN-013 80-81 m
+2118,22,CRM,LOW,0.526,0.52,0.03,,SYN-013 90-91 m
+2130,22,BLK,,0.0057,,,,SYN-013 102-103 m
+2166,22,CRM,HIGH,4.908,5.1,0.22,,SYN-014 26-27 m
+2178,22,BLK,,0.0037,,,,SYN-014 38-39 m
+2213,23,PDUP,,0.345,,,0.363,SYN-014 73-74 m
+2214,23,CRM,LOW,0.71,0.52,0.03,,SYN-014 74-75 m
+2217,23,FDUP,,14.733,,,11.143,SYN-014 77-78 m
+2220,23,PDUP,,12.349,,,12.372,SYN-014 80-81 m
+2223,23,FDUP,,1.054,,,1.035,SYN-014 83-84 m
+2226,23,BLK,,0.0031,,,,SYN-014 86-87 m
+2227,23,PDUP,,0.152,,,0.147,SYN-014 87-88 m
+2246,23,FDUP,,0.329,,,0.377,SYN-014 106-107 m
+2249,23,PDUP,,0.556,,,0.562,SYN-014 109-110 m
+2253,23,FDUP,,0.443,,,0.585,SYN-014 113-114 m
+2256,23,PDUP,,0.139,,,0.153,SYN-014 116-117 m
+2262,23,CRM,HIGH,5.276,5.1,0.22,,SYN-014 122-123 m
+2274,23,BLK,,0.0034,,,,SYN-014 134-135 m
+2310,24,CRM,LOW,0.525,0.52,0.03,,SYN-015 1-2 m
+2322,24,BLK,,0.004,,,,SYN-015 13-14 m
+2358,24,CRM,HIGH,5.042,5.1,0.22,,SYN-015 49-50 m
+2370,24,BLK,,0.0034,,,,SYN-015 61-62 m
+2406,25,CRM,LOW,0.531,0.52,0.03,,SYN-015 97-98 m
+2418,25,FDUP,,0.491,,,0.529,SYN-015 109-110 m
+2418,25,BLK,,0.0038,,,,SYN-015 109-110 m
+2421,25,PDUP,,1.385,,,1.383,SYN-015 112-113 m
+2424,25,FDUP,,14.127,,,9.034,SYN-015 115-116 m
+2428,25,PDUP,,0.467,,,0.442,SYN-015 119-120 m
+2431,25,FDUP,,0.282,,,0.256,SYN-015 122-123 m
+2450,25,PDUP,,0.253,,,0.265,SYN-015 141-142 m
+2454,25,CRM,HIGH,4.918,5.1,0.22,,SYN-015 145-146 m
+2455,25,FDUP,,0.841,,,0.663,SYN-015 146-147 m
+2458,25,PDUP,,0.865,,,0.801,SYN-015 149-150 m
+2461,25,FDUP,,0.202,,,0.209,SYN-015 152-153 m
+2466,25,BLK,,0.0047,,,,SYN-015 157-158 m
+2502,26,CRM,LOW,0.534,0.52,0.03,,SYN-015 193-194 m
+2514,26,BLK,,0.005,,,,SYN-015 205-206 m
+2550,26,CRM,HIGH,5.222,5.1,0.22,,SYN-016 15-16 m
+2555,26,PDUP,,0.112,,,0.116,SYN-016 20-21 m
+2561,26,FDUP,,3.39,,,1.906,SYN-016 26-27 m
+2562,26,BLK,,0.0025,,,,SYN-016 27-28 m
+2591,26,PDUP,,0.157,,,0.147,SYN-016 56-57 m
+2598,26,CRM,LOW,0.529,0.52,0.03,,SYN-016 63-64 m
+2600,27,FDUP,,0.138,,,0.111,SYN-016 65-66 m
+2610,27,BLK,,0.0063,,,,SYN-017 5-6 m
+2627,27,PDUP,,0.13,,,0.115,SYN-017 22-23 m
+2631,27,FDUP,,2.304,,,3.56,SYN-017 26-27 m
+2634,27,PDUP,,0.288,,,0.33,SYN-017 29-30 m
+2637,27,FDUP,,0.379,,,0.309,SYN-017 32-33 m
+2646,27,CRM,HIGH,4.966,5.1,0.22,,SYN-017 41-42 m
+2658,27,BLK,,0.004,,,,SYN-017 53-54 m
+2659,27,PDUP,,0.134,,,0.125,SYN-017 54-55 m
+2662,27,FDUP,,0.141,,,0.213,SYN-017 57-58 m
+2665,27,PDUP,,0.489,,,0.579,SYN-017 60-61 m
+2694,27,CRM,LOW,0.525,0.52,0.03,,SYN-018 19-20 m
+2695,27,FDUP,,0.24,,,0.237,SYN-018 20-21 m
+2698,27,PDUP,,0.338,,,0.345,SYN-018 23-24 m
+2701,28,FDUP,,7.306,,,7.2,SYN-018 26-27 m
+2704,28,BLK,,0.0984,,,,SYN-018 29-30 m
+2705,28,PDUP,,5.673,,,5.749,SYN-018 30-31 m
+2706,28,BLK,,0.0028,,,,SYN-018 31-32 m
+2708,28,FDUP,,0.506,,,0.763,SYN-018 33-34 m
+2711,28,PDUP,,0.292,,,0.28,SYN-018 36-37 m
+2732,28,FDUP,,0.626,,,0.636,SYN-018 57-58 m
+2735,28,PDUP,,3.168,,,3.067,SYN-018 60-61 m
+2739,28,FDUP,,0.309,,,0.396,SYN-018 64-65 m
+2742,28,PDUP,,0.305,,,0.321,SYN-018 67-68 m
+2742,28,CRM,HIGH,4.968,5.1,0.22,,SYN-018 67-68 m
+2754,28,BLK,,0.0029,,,,SYN-019 9-10 m
+2766,28,FDUP,,0.341,,,0.325,SYN-019 21-22 m
+2770,28,PDUP,,0.855,,,0.91,SYN-019 25-26 m
+2773,28,FDUP,,19.165,,,16.74,SYN-019 28-29 m
+2776,28,PDUP,,0.884,,,0.86,SYN-019 31-32 m
+2780,28,FDUP,,0.342,,,0.206,SYN-019 35-36 m
+2790,28,CRM,LOW,0.495,0.52,0.03,,SYN-019 45-46 m
+2800,29,PDUP,,0.345,,,0.321,SYN-019 55-56 m
+2802,29,BLK,,0.0039,,,,SYN-019 57-58 m
+2803,29,FDUP,,0.463,,,0.465,SYN-019 58-59 m
+2807,29,PDUP,,0.344,,,0.386,SYN-019 62-63 m
+2810,29,FDUP,,0.513,,,0.576,SYN-019 65-66 m
+`;
+// ================= QC =================
+$('exQC').onclick=()=>{$('tQC').value=QCEX;runQC()};
+$('clearQ').onclick=()=>{$('tQC').value='';$('qOut').innerHTML=''};
+$('runQ').onclick=runQC;
+const QA={type:['qctype','type','sampletype','qc'],res:['result','resultaugpt','au','augpt','value','assay','grade'],batch:['batch','batchid','lot','job'],ord:['runorder','order','seq','sequence','sampleno','no'],
+  name:['crm','standard','crmid','stdid','standardid','crmname'],cert:['certified','certifiedaugpt','certvalue','expected','cert','certifiedvalue'],sd:['certifiedsd','sd','stdev','certsd','standarddeviation'],orig:['original','originalaugpt','orig','parent','originalvalue'],ref:['sampleref','ref','sampleid','parentid']};
+function qcol(hdr,k){for(const a of QA[k]){const i=hdr.indexOf(a);if(i>=0)return i}return -1}
+function qType(s){s=(s||'').toLowerCase();if(/blank|blk/.test(s))return 'BLK';if(/pulp|pdup|lab dup|labdup/.test(s))return 'PDUP';if(/dup|field|fdup/.test(s))return 'FDUP';if(/crm|std|standard|oreas|cert/.test(s))return 'CRM';return null}
+function pct(a,p){const s=[...a].sort((x,y)=>x-y);if(!s.length)return NaN;const k=(s.length-1)*p,f=Math.floor(k);return s[f]+(s[Math.min(f+1,s.length-1)]-s[f])*(k-f)}
+function runQC(){
+  const out=$('qOut'),P=parseTable($('tQC').value);
+  if(!P.rows.length){out.innerHTML='<div class="msg">Paste your QC results (or press “Load example”), then press Check QA/QC.</div>';return}
+  const m={};Object.keys(QA).forEach(k=>m[k]=qcol(P.hdr,k));
+  if(m.type<0||m.res<0){out.innerHTML=`<div class="msg">Could not find the <b>type</b> and/or <b>result</b> columns. Headers found: ${esc(P.raw.join(', '))}.</div>`;return}
+  const DL=+$('qDL').value,BM=+$('qBM').value,SDL=+$('qSD').value,FL=+$('qFL').value,PL=+$('qPL').value,DS=+$('qDS').value/100;
+  const notes=[],rows=[];let defSD=0;
+  P.rows.forEach((r,i)=>{const t=qType(r[m.type]);if(!t){notes.push(`Row ${i+2}: unknown QC type “${r[m.type]}”, skipped.`);return}
+    const v=toNum(r[m.res],P.delim);if(isNaN(v)){notes.push(`Row ${i+2}: result is not a number, skipped.`);return}
+    const o={t,v,ord:m.ord>=0&&!isNaN(toNum(r[m.ord],P.delim))?toNum(r[m.ord],P.delim):i,name:m.name>=0?r[m.name]:'',ref:m.ref>=0?r[m.ref]:'',row:i+2};
+    o.b=m.batch>=0&&r[m.batch]!==''?r[m.batch]:'all';
+    if(t==='CRM'){o.cert=toNum(r[m.cert],P.delim);o.sd=m.sd>=0?toNum(r[m.sd],P.delim):NaN;
+      if(isNaN(o.cert)){notes.push(`Row ${i+2}: CRM without a certified value, skipped.`);return}
+      if(isNaN(o.sd)||o.sd<=0){o.sd=o.cert*DS;defSD++}o.z=(o.v-o.cert)/o.sd;o.key=o.name||String(o.cert)}
+    if(t==='FDUP'||t==='PDUP'){o.orig=toNum(r[m.orig],P.delim);if(isNaN(o.orig)){notes.push(`Row ${i+2}: duplicate without an original value, skipped.`);return}}
+    rows.push(o)});
+  if(defSD)notes.push(`${defSD} CRM row(s) had no SD; used ${DS*100}% of the certified value.`);
+  rows.sort((a,b)=>a.ord-b.ord);
+  const batches={};const bt=b=>batches[b]=batches[b]||{b,st:0,why:[],n:{CRM:0,BLK:0,FDUP:0,PDUP:0}};
+  const mark=(b,lvl,why)=>{const B=bt(b);B.st=Math.max(B.st,lvl);if(!B.why.includes(why))B.why.push(why)};
+  rows.forEach(r=>bt(r.b).n[r.t]++);
+  const crm=rows.filter(r=>r.t==='CRM');
+  crm.forEach(r=>{if(Math.abs(r.z)>SDL)mark(r.b,2,`CRM ${r.key} ${f3(r.v)} g/t is ${f1(r.z)} SD from certified`)});
+  const byKey={};crm.forEach(r=>(byKey[r.key]=byKey[r.key]||[]).push(r));
+  Object.values(byKey).forEach(a=>{for(let i=1;i<a.length;i++)if(Math.abs(a[i].z)>2&&Math.abs(a[i-1].z)>2&&Math.sign(a[i].z)===Math.sign(a[i-1].z)){
+    mark(a[i].b,2,`2 consecutive ${a[i].key} results beyond 2 SD (same side)`);mark(a[i-1].b,2,`2 consecutive ${a[i].key} results beyond 2 SD (same side)`)}});
+  let run=[];const flushRun=()=>{if(run.length>=4)run.forEach(r=>mark(r.b,1,`CRM run: ${run.length} consecutive results beyond 1 SD on the same side (possible drift)`));run=[]};
+  crm.forEach(r=>{if(Math.abs(r.z)>1&&(!run.length||Math.sign(run[run.length-1].z)===Math.sign(r.z)))run.push(r);else{flushRun();if(Math.abs(r.z)>1)run.push(r)}});flushRun();
+  const blk=rows.filter(r=>r.t==='BLK'),bl=BM*DL;
+  blk.forEach(r=>{if(r.v>bl)mark(r.b,2,`Blank ${f3(r.v)} g/t exceeds ${f3(bl)} g/t (possible contamination${r.ref?', after '+r.ref:''})`)});
+  const rpd=r=>Math.abs(r.v-r.orig)/((r.v+r.orig)/2)*100,dupInfo={};
+  [['FDUP',FL],['PDUP',PL]].forEach(([t,l])=>{const a=rows.filter(r=>r.t===t&&r.v>5*DL&&r.orig>5*DL),rp=a.map(rpd),p90=pct(rp,.9);
+    dupInfo[t]={n:a.length,p90,lim:l,ok:a.length?p90<=l:null,med:pct(rp,.5),within:a.length?rp.filter(x=>x<=l).length/a.length*100:NaN};
+    a.forEach(r=>{if(rpd(r)>2*l)mark(r.b,1,`${t==='FDUP'?'Field':'Pulp'} duplicate pair with RPD ${f1(rpd(r))}% (more than 2× the ${l}% limit)`)})});
+  const ACT=['No action.','Query the lab (ask for an explanation or a re-check).','Ask the lab to re-assay the batch (or the affected range) and hold the results.'];
+  const blist=Object.values(batches).sort((a,b)=>(isNaN(+a.b)||isNaN(+b.b))?String(a.b).localeCompare(String(b.b)):+a.b-+b.b);
+  const lab=['PASS','REVIEW','FAIL'];
+  const nF=blist.filter(b=>b.st===2).length,nR=blist.filter(b=>b.st===1).length;
+  let h=`<div class="${nF?'msg':nR?'msg':'msg good'}">${nF?`${nF} batch(es) to re-assay`:'No batch fails outright'}${nR?`, ${nR} to review`:''} — ${blist.length} batches checked, ${rows.length} QC samples.</div>`;
+  if(notes.length)h+=`<div class="hint" style="margin-top:6px">${notes.map(esc).join('<br>')}</div>`;
+  h+=`<h2>Decision per batch</h2><div class="scroll"><table class="tl"><tr><th>Batch</th><th>QC samples</th><th>Decision</th><th>Reasons</th><th>Action</th></tr>`+
+   blist.map(b=>`<tr><td>${esc(b.b)}</td><td>${b.n.CRM} CRM · ${b.n.BLK} blank · ${b.n.FDUP+b.n.PDUP} dup</td><td class="sev ${lab[b.st]}">${lab[b.st]}</td><td>${b.why.map(esc).join('<br>')||'–'}</td><td>${ACT[b.st]}</td></tr>`).join('')+`</table></div>`;
+  h+=`<h2>Precision (all batches)</h2><table class="tl"><tr><th>Check</th><th>Result</th><th>Rule</th><th>Status</th></tr>`;
+  [['FDUP','Field duplicates',FL,'Check sample splitting and sub-sampling (core cutting, riffle splitting, crush size).'],['PDUP','Pulp duplicates',PL,'Check pulverising and homogenisation at the lab.']].forEach(([t,nm,l,act])=>{const d=dupInfo[t];
+    h+=d.n?`<tr><td>${nm} (${d.n} pairs above 5× DL)</td><td>P90 RPD ${f1(d.p90)}% · median ${f1(d.med)}% · ${Math.round(d.within)}% within ${l}%</td><td>P90 ≤ ${l}%</td><td class="sev ${d.ok?'PASS':'FAIL'}">${d.ok?'PASS':'FAIL'}${d.ok?'':'<br><span style="font-weight:400;color:var(--mut)">'+act+'</span>'}</td></tr>`:`<tr><td>${nm}</td><td>No usable pairs</td><td></td><td></td></tr>`});
+  h+=`</table>`;
+  // email
+  const bad=blist.filter(b=>b.st>0);
+  let em='Hi,\n\nWe reviewed the QA/QC for the latest job and need your help with the following:\n\n';
+  if(!bad.length)em='Hi,\n\nWe reviewed the QA/QC for the latest job. All standards and blanks are within limits and no batch needs action.\n';
+  else{bad.forEach(b=>{em+=`Batch ${b.b} (${lab[b.st]}):\n`+b.why.map(w=>'  - '+w).join('\n')+`\n  Request: ${b.st===2?'please re-assay this batch (or the affected range) and send the repeat results':'please check and let us know the cause'}.\n\n`});
+    ['FDUP','PDUP'].forEach(t=>{const d=dupInfo[t];if(d.n&&!d.ok)em+=`${t==='FDUP'?'Field':'Pulp'} duplicates: P90 RPD ${f1(d.p90)}% against a ${d.lim}% limit. Please confirm sample preparation steps.\n`});
+    em+='\nPlease confirm the new turnaround time. Thank you.\n'}
+  em+='\nKind regards,\n';
+  h+=`<h2>Draft message to the lab</h2><pre id="emT">${esc(em)}</pre><div class="tools"><button class="btn sec sm" id="cpEm">Copy message</button></div>`;
+  h+=`<h2>Charts</h2><div class="row2"><div id="qC" class="plot" style="height:380px"></div><div id="qB" class="plot" style="height:380px"></div></div><div class="row2"><div id="qD1" class="plot" style="height:380px"></div><div id="qD2" class="plot" style="height:380px"></div></div>`;
+  out.innerHTML=h;
+  $('cpEm').onclick=async()=>{const b=$('cpEm');try{await navigator.clipboard.writeText(em);b.textContent='Copied'}catch(e){b.textContent='Copy blocked here'}setTimeout(()=>b.textContent='Copy message',1600)};
+  // charts
+  const xr=[Math.min(...rows.map(r=>r.ord)),Math.max(...rows.map(r=>r.ord))];
+  const L=(y,c,d)=>({type:'scatter',mode:'lines',x:xr,y:[y,y],line:{color:c,dash:d||'dash',width:1},hoverinfo:'skip',showlegend:false});
+  const keys=Object.keys(byKey),pal=['#2f7fb8','#b7791f','#7b4fa3','#2a9d8f'];
+  Plotly.react('qC',keys.map((k,i)=>{const a=byKey[k];return {type:'scatter',mode:'lines+markers',x:a.map(r=>r.ord),y:a.map(r=>r.z),line:{color:pal[i%4],width:1},
+      marker:{size:a.map(r=>Math.abs(r.z)>SDL?12:7),color:a.map(r=>Math.abs(r.z)>SDL?'#c4151c':Math.abs(r.z)>2?'#f08a2c':pal[i%4])},name:'CRM '+k,text:a.map(r=>`Batch ${r.b} · ${f3(r.v)} g/t · z ${f2(r.z)}`),hoverinfo:'text'}})
+      .concat([L(SDL,'#c4151c'),L(-SDL,'#c4151c'),L(2,'#f08a2c'),L(-2,'#f08a2c'),L(0,'#444','solid')]),
+    {margin:{l:55,r:10,t:30,b:50},title:{text:'CRM control chart (z-score)',font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax('Run order'),yaxis:ax('z'),legend:{orientation:'h',y:-.25}},CFG);
+  Plotly.react('qB',[{type:'scatter',mode:'markers',x:blk.map(r=>r.ord),y:blk.map(r=>Math.max(r.v,DL/5)),marker:{size:blk.map(r=>r.v>bl?11:7),color:blk.map(r=>r.v>bl?'#c4151c':'#1f6f78')},text:blk.map(r=>`Batch ${r.b} · ${f3(r.v)} g/t${r.ref?'<br>after '+r.ref:''}`),hoverinfo:'text',showlegend:false},L(bl,'#c4151c')],
+    {margin:{l:60,r:10,t:30,b:45},title:{text:`Blanks (limit ${f3(bl)} g/t)`,font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',xaxis:ax('Run order'),yaxis:ax('Au g/t',{type:'log'})},CFG);
+  [['FDUP','qD1',FL],['PDUP','qD2',PL]].forEach(([t,id,l])=>{const a=rows.filter(r=>r.t===t);
+    if(!a.length){$(id).innerHTML='<div class="hint" style="padding:30px">No '+(t==='FDUP'?'field':'pulp')+' duplicates in the data.</div>';return}
+    const mx=Math.max(...a.map(r=>Math.max(r.v,r.orig))),lo=Math.max(DL,Math.min(...a.map(r=>Math.min(r.v,r.orig)))/1.5),k=(1+l/200)/(1-l/200);
+    Plotly.react(id,[{type:'scatter',mode:'markers',x:a.map(r=>r.orig),y:a.map(r=>r.v),marker:{size:7,color:a.map(r=>rpd(r)>l?'#c4151c':'#1f6f78'),line:{width:1,color:'#fff'}},text:a.map(r=>`Batch ${r.b}<br>${f3(r.orig)} vs ${f3(r.v)}<br>RPD ${f1(rpd(r))}%`),hoverinfo:'text',showlegend:false},
+      {type:'scatter',mode:'lines',x:[lo,mx*1.3],y:[lo,mx*1.3],line:{color:'#444',width:1},hoverinfo:'skip',showlegend:false},
+      {type:'scatter',mode:'lines',x:[lo,mx*1.3],y:[lo*k,mx*1.3*k],line:{color:'#c4151c',dash:'dash',width:1},hoverinfo:'skip',showlegend:false},
+      {type:'scatter',mode:'lines',x:[lo,mx*1.3],y:[lo/k,mx*1.3/k],line:{color:'#c4151c',dash:'dash',width:1},hoverinfo:'skip',showlegend:false}],
+      {margin:{l:55,r:10,t:30,b:45},title:{text:(t==='FDUP'?'Field':'Pulp')+` duplicates (±${l}% RPD)`,font:{size:13}},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'#fff',
+       xaxis:ax('Original Au g/t',{type:'log',range:[Math.log10(lo),Math.log10(mx*1.3)]}),yaxis:ax('Duplicate Au g/t',{type:'log',range:[Math.log10(lo),Math.log10(mx*1.3)]})},CFG)})
+}
+
+</script></body></html>
